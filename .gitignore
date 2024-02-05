@@ -1,0 +1,5 @@
+# Ignore all files in the DraftFiles directory
+/DraftFiles
+
+# Ignore the .env file that contains information related to API calls (authentication keys and handles)
+*.env
