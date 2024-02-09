@@ -1,6 +1,7 @@
-# Ignore all files in the DraftFiles directory
-/DraftFiles
+# Ignore uploading the .gitignore
+.gitignore
 
 # Ignore the .env file that contains information related to API calls (authentication keys and handles)
 *.env
+# Ignore the credentials.json file that contains information related to API calls (authentication keys and handles)
 credentials.json
