@@ -137,7 +137,12 @@ class Platform {
 
 };
 
-// Functions ======================================================================================
+// Notion Interactions ============================================================================
+
+function updateNotionDB(platform, submission) {
+}
+
+// Application Handling ===========================================================================
 
 function saveNewEnv(exit_code) {
 	console.log(`Application terminating at ${Date.now()}`);
@@ -147,9 +152,6 @@ function saveNewEnv(exit_code) {
 function handleError(error) {
 	console.error(`Application has terminated with the following error:\n${error}\n`);
 	saveNewEnv(1);
-}
-
-function updateNotionDatabase(platform, submission) {
 }
 
 // ================================================================================================
@@ -177,7 +179,7 @@ platforms.forEach((platform) => {
 		// Update the Notion database accordingly
 		console.log(`Adding to Notion ${platform} submissions...`);
 		submissions.forEach((submission) => {
-			updateNotionDatabase(platform, submission);
+			updateNotionDB(platform, submission);
 			console.log(`\tAdded ${submission} to Notion DB`);
 		})
 
