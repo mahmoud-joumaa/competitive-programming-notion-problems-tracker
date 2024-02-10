@@ -2,7 +2,7 @@
   "name": "competitive-programming-notion-problems-tracker",
   "version": "1.0.0",
   "description": "A simple application to track different problems across competitive programming platforms by syncing the data into a Notion database.",
-  "main": "./src/app.js",
+  "main": "src/app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,5 +15,10 @@
   "bugs": {
     "url": "https://github.com/MahmoudJLB/competitive-programming-notion-problems-tracker/issues"
   },
-  "homepage": "https://github.com/MahmoudJLB/competitive-programming-notion-problems-tracker#readme"
+  "homepage": "https://github.com/MahmoudJLB/competitive-programming-notion-problems-tracker",
+  "dependencies": {
+    "@notionhq/client": "~2.2.14",
+    "axios": "~1.6.7",
+    "cheerio": "^1.0.0-rc.12"
+  }
 }
