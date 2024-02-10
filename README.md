@@ -10,59 +10,19 @@
 
 # Competitive Programming Automated Problems Tracker in Notion
 
-This is a simple web application used to sync, and consequently track, different problems across competitive programming platforms and store the data into a notion database.
+A simple application to track different problems across competitive programming platforms by syncing the data into a Notion database.
 
 ## The Idea
 
 ## How it Works
 
-The app reads a `.env` that contains all the necessary information for it to work, such as Notion's integration key and the user's codeforces handle.
-
-The next stage waits for the user to confirm the detected workspaces and credentials.
-
-Once the user confirms, the application starts the automated syncing process and updates the provided Notion database accordingly.
-Logs would be presented on the screen to help the user track the operation's progress.
-
-Once completed, the user will be prompted to save the updated `.env` with the more recent timestamps to be provided the next time the user wishes to sync his problems into Notion.
-
 ## Requirements
 
 ### A Notion Setup
 
-### Your Usernames
-
-### A Browser
-
-- A browser
-- A `.env` file containing the following:
-	- `NOTION_INTEGRATION_KEY`
-	- `NOTION_DATABASE_ID`
-	- `{PLATFORM}_ID`
-	- `{PLATFORM}_LAST_SUBMISSION_TIMESTAMP`
-
-	**where:**
-	- {PLATFORM} is the name of the platform (_e.g. CODEFORCES_))
-	- The `PLATFORM_ID` is your username on the platform (_e.g. your codedforces handle_) or an empty string if you don't want to sync
-	- `PLATFORM_LAST_SUBMISSION_ID` is the timestamp of the last synced submission. This is equal to zero for first-time runs.
-
-	**Find below a sample `.env` file to upload)**
-	```env
-	NOTION_INTEGRATION_KEY = "notion_key"
-	NOTION_DATABASE_ID = "notion_db_id"
-
-	CODEFORCES_ID = "codeforces"
-	CODEFORCES_LAST_SUBMISSION_TIMESTAMP = 0
-
-	LEETCODE_ID = ""
-	LEETCODE_LAST_SUBMISSION_TIMESTAMP = 0
-	```
+### Your Identifications
 
 ## Using the Application
-
-1. Choose your `.env` file to upload.
-2. Once your file is uploaded, the page will populate information to confirm your credentials. Please make sure of these before starting the sync process.
-3. Just sit back and watch as the problems sync into your Notion database!
-4. Save the newly generated `.env` with the updated timestamps. Upload this `.env` file the next time you use the application.
 
 # References
 
