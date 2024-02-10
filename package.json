@@ -1,7 +1,7 @@
 {
   "name": "competitive-programming-notion-problems-tracker",
   "version": "1.0.0",
-  "description": "A simple application track different problems across competitive programming platforms by syncing the data into a notion database.",
+  "description": "A simple application to track different problems across competitive programming platforms by syncing the data into a Notion database.",
   "main": "./src/app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
