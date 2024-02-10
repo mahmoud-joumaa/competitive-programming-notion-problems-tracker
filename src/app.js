@@ -11,7 +11,12 @@ const { Client } = require('@notionhq/client');
 
 // Definitions & Initializations ==================================================================
 
-const notion = new Client({ auth: process.env.NOTION_INTEGRATION_KEY });
+const NOTION_INTEGRATION_KEY = process.env.NOTION_INTEGRATION_KEY;
+const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
+
+const notion = new Client({ auth: NOTION_INTEGRATION_KEY });
+
+const NOTION_DB = getNotionDatabaseName();
 
 // Classes ========================================================================================
 
@@ -121,7 +126,8 @@ class Platform {
 			}
 
 			const new_submission = new Submission(submission_id, submission_timestamp, submission_verdict, problem_id, problem_name, problem_url, problem_difficulty, problem_tags);
-			console.log(`\tFetched & Cleaned "${submission}" from ${problem_url}`)
+
+			console.log(`\tFetched from ${problem_url} \t ${new_submission}`)
 
 			submissions.add(new_submission);
 
@@ -139,18 +145,23 @@ class Platform {
 
 // Notion Interactions ============================================================================
 
+async function getNotionDatabaseName() {
+	const name = await notion.databases.retrieve({ database_id: NOTION_DATABASE_ID });
+	return await name.title[0].plain_text;
+}
+
 function updateNotionDB(platform, submission) {
 }
 
 // Application Handling ===========================================================================
 
 function saveNewEnv(exit_code) {
-	console.log(`Application terminating at ${Date.now()}`);
+	console.log(`\nApplication terminating at ${new Date(Date.now()*1000).toDateString()}\n`);
 	process.exit(exit_code);
 }
 
 function handleError(error) {
-	console.error(`Application has terminated with the following error:\n${error}\n`);
+	console.error(`\nApplication has terminated with the following error:\n${error}\n`);
 	saveNewEnv(1);
 }
 
@@ -158,32 +169,43 @@ function handleError(error) {
 //  Syncing the data across different platforms
 // ================================================================================================
 
-// Initialize all supported platforms
-const codeforces = new Platform("codeforces", process.env.CODEFORCES_ID, Number(process.env.CODEFORCES_LAST_SUBMISSION_TIMESTAMP));
-const leetcode = new Platform("leetcode", process.env.LEETCODE_ID, Number(process.env.LEETCODE_LAST_SUBMISSION_TIMESTAMP));
+function main() {
 
-// Only add the platforms where the user has an id to the set
-const platforms = new Set()
-if (codeforces.user_id) platforms.add(codeforces);
-if (leetcode.user_id) platforms.add(leetcode);
+	// Initialize all supported platforms
+	const codeforces = new Platform("codeforces", process.env.CODEFORCES_ID, Number(process.env.CODEFORCES_LAST_SUBMISSION_TIMESTAMP));
+	const leetcode = new Platform("leetcode", process.env.LEETCODE_ID, Number(process.env.LEETCODE_LAST_SUBMISSION_TIMESTAMP));
 
-// Fetch submission from all supported platforms where the user has an id
-platforms.forEach((platform) => {
+	// Only add the platforms where the user has an id to the set
+	const platforms = new Set()
+	if (codeforces.user_id) platforms.add(codeforces);
+	if (leetcode.user_id) platforms.add(leetcode);
 
-	console.log(`\nFetching ${platform} Problems...\n`);
-	(async () => {
+	// Fetch submission from all supported platforms where the user has an id
+	platforms.forEach((platform) => {
 
-		// Get the submissions per platform
-		const submissions = await platform.fetchSubmissions();
+		console.log(`\nFetching ${platform} Problems...\n`);
 
-		// Update the Notion database accordingly
-		console.log(`Adding to Notion ${platform} submissions...`);
-		submissions.forEach((submission) => {
-			updateNotionDB(platform, submission);
-			console.log(`\tAdded ${submission} to Notion DB`);
-		})
+		(async () => {
 
-		// Update the last submission timestamp of each platform
-		platform.last_submission_timestamp = 0;
-	})();
-})
+			// Get the submissions per platform
+			const submissions = await platform.fetchSubmissions();
+
+			// Update the Notion database accordingly
+			console.log(`\nAdding ${platform} submissions to ${await NOTION_DB}...\n`);
+			submissions.forEach(async (submission) => {
+					await updateNotionDB(platform, submission);
+					console.log(`\tAdded ${submission}`);
+			})
+
+			// Update the last submission timestamp of each platform
+			platform.last_submission_timestamp = 0;
+		})();
+	})
+
+}
+
+// ================================================================================================
+// Running the Application
+// ================================================================================================
+
+main();
