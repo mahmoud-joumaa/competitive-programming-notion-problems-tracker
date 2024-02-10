@@ -1,5 +1,5 @@
 # Ignore the .env file that contains information related to API calls (authentication keys and handles)
-.env
+my.env
 
 # Ignore the node_modules directory
 node_modules
