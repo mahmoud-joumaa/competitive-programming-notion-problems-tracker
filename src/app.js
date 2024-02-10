@@ -17,9 +17,10 @@ const notion = new Client({ auth: process.env.NOTION_INTEGRATION_KEY });
 
 class Submission {
 
-	constructor(submission_id, submission_verdict, problem_id, problem_name, problem_url, problem_difficulty, problem_tags) {
+	constructor(submission_id, submission_timestamp, submission_verdict, problem_id, problem_name, problem_url, problem_difficulty, problem_tags) {
 		// Submission Identifiers
 		this.submission_id = submission_id;
+		this.submission_timestamp = submission_timestamp;
 		this.submission_verdict = submission_verdict;
 		// Problem Identifiers
 		this.problem_id = problem_id;
@@ -27,6 +28,10 @@ class Submission {
 		this.problem_url = problem_url;
 		this.problem_difficulty = problem_difficulty;
 		this.problem_tags = problem_tags;
+	}
+
+	toString() {
+		return `${this.problem_id} ${this.problem_name}`;
 	}
 
 }
@@ -76,7 +81,8 @@ class Platform {
 		switch (this.platform_name) {
 			case "codeforces":
 				// @ts-ignore
-				submissions = await axios.get(`${this.base_url}user.status?handle=${this.user_id}`);
+				submissions = await axios.get(`${this.base_url}user.status?handle=${this.user_id}`)
+				.catch(error => handleError(error));
 				break;
 		}
 
@@ -94,15 +100,17 @@ class Platform {
 
 			let submission_id = "";
 			let submission_verdict = false;
+			let submission_timestamp = 0;
 			let problem_id = "";
 			let problem_name = "";
 			let problem_url = "";
 			let problem_difficulty = "";
-			let problem_tags = "";
+			let problem_tags = [];
 
 			switch (this.platform_name) {
 				case "codeforces":
 					submission_id = submission.id;
+					submission_timestamp = submission.creationTimeSeconds;
 					submission_verdict = "OK" ? true : false;
 					problem_id = `${submission.problem.contestId}/${submission.problem.index}`;
 					problem_name = submission.problem.name;
@@ -112,8 +120,8 @@ class Platform {
 					break;
 			}
 
-			const new_submission = new Submission(submission_id, submission_verdict, problem_id, problem_name, problem_url, problem_difficulty, problem_tags);
-			console.log(`\tFetched "${problem_id} ${problem_name}" from ${problem_url}`)
+			const new_submission = new Submission(submission_id, submission_timestamp, submission_verdict, problem_id, problem_name, problem_url, problem_difficulty, problem_tags);
+			console.log(`\tFetched & Cleaned "${submission}" from ${problem_url}`)
 
 			submissions.add(new_submission);
 
@@ -123,11 +131,25 @@ class Platform {
 
 	}
 
+	toString() {
+		return this.platform_name;
+	}
+
 };
 
 // Functions ======================================================================================
 
-function saveNewEnv() {
+function saveNewEnv(exit_code) {
+	console.log(`Application terminating at ${Date.now()}`);
+	process.exit(exit_code);
+}
+
+function handleError(error) {
+	console.error(`Application has terminated with the following error:\n${error}\n`);
+	saveNewEnv(1);
+}
+
+function updateNotionDatabase(platform, submission) {
 }
 
 // ================================================================================================
@@ -145,14 +167,21 @@ if (leetcode.user_id) platforms.add(leetcode);
 
 // Fetch submission from all supported platforms where the user has an id
 platforms.forEach((platform) => {
-	console.log(`\nFetching ${platform.platform_name} Problems...\n`);
-	try {
-		(async () => {
-			const submissions = await platform.fetchSubmissions();
-		})()
-	}
-	catch (error) {
-		console.log(`Application crashed with the following error. Please retry after a short while:\n${error}\n`);
-		saveNewEnv();
-	}
+
+	console.log(`\nFetching ${platform} Problems...\n`);
+	(async () => {
+
+		// Get the submissions per platform
+		const submissions = await platform.fetchSubmissions();
+
+		// Update the Notion database accordingly
+		console.log(`Adding to Notion ${platform} submissions...`);
+		submissions.forEach((submission) => {
+			updateNotionDatabase(platform, submission);
+			console.log(`\tAdded ${submission} to Notion DB`);
+		})
+
+		// Update the last submission timestamp of each platform
+		platform.last_submission_timestamp = 0;
+	})();
 })
