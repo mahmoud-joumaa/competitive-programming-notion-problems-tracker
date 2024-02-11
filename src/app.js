@@ -20,23 +20,34 @@ const NOTION_DB = getNotionDatabaseName();
 
 // Classes ========================================================================================
 
-class Submission {
+class Problem {
 
-	constructor(submission_id, submission_timestamp, submission_verdict, problem_id, problem_name, problem_url, problem_difficulty, problem_tags) {
-		// Submission Identifiers
-		this.submission_id = submission_id;
-		this.submission_timestamp = submission_timestamp;
-		this.submission_verdict = submission_verdict;
-		// Problem Identifiers
-		this.problem_id = problem_id;
-		this.problem_name = problem_name;
-		this.problem_url = problem_url;
-		this.problem_difficulty = problem_difficulty;
-		this.problem_tags = problem_tags;
+	constructor(id, name, url, difficulty, tags) {
+		this.id = id;
+		this.name = name;
+		this.url = url;
+		this.difficulty = difficulty;
+		this.tags = tags;
 	}
 
 	toString() {
-		return `${this.problem_id} ${this.problem_name}`;
+		return `${this.id} ${this.name}`;
+	}
+
+}
+
+class Submission {
+
+	constructor(id, timestamp, verdict, url, problem) {
+		this.id = id;
+		this.timestamp = timestamp;
+		this.verdict = verdict;
+		this.url = url;
+		this.problem = problem;
+	}
+
+	toString() {
+		return `${this.id} ${this.problem}`;
 	}
 
 }
@@ -44,7 +55,7 @@ class Submission {
 class Platform {
 
 	constructor(platform_name, user_id, last_submission_timestamp) {
-		this.platform_name = platform_name; // name of the competitive programming platform
+		this.platform_name = platform_name.toLowerCase(); // name of the competitive programming platform
 		this.base_url = this.generateUrl();
 		this.user_id = user_id; // username or handle used to uniquely identify an account on the platform
 		this.last_submission_timestamp = last_submission_timestamp; // the last submission id after which to filter the query results
@@ -78,6 +89,20 @@ class Platform {
 
 	}
 
+	generateSubmissionUrl(problem_id, submission_id) {
+
+		let submission_url = "";
+
+		switch (this.platform_name) {
+			case "codeforces":
+				submission_url = `https://codeforces.com/contest/${problem_id.split('/')[0]}/submission/${submission_id}`;
+				break;
+		}
+
+		return submission_url;
+
+	}
+
 	async fetchSubmissions() {
 
 		let submissions = [];
@@ -85,9 +110,8 @@ class Platform {
 		// fetch all submissions of the current platform
 		switch (this.platform_name) {
 			case "codeforces":
-				// @ts-ignore
-				submissions = await axios.get(`${this.base_url}user.status?handle=${this.user_id}`)
-				.catch(error => handleError(error));
+				// @ts-ignore: axios has a 'get' property
+				submissions = await axios.get(`${this.base_url}user.status?handle=${this.user_id}`);
 				break;
 		}
 
@@ -125,7 +149,7 @@ class Platform {
 					break;
 			}
 
-			const new_submission = new Submission(submission_id, submission_timestamp, submission_verdict, problem_id, problem_name, problem_url, problem_difficulty, problem_tags);
+			const new_submission = new Submission(submission_id, submission_timestamp, submission_verdict, this.generateSubmissionUrl(problem_id, submission_id), new Problem(problem_id, problem_name, problem_url, problem_difficulty, problem_tags));
 
 			console.log(`\tFetched from ${problem_url} \t ${new_submission}`)
 
@@ -147,16 +171,22 @@ class Platform {
 
 async function getNotionDatabaseName() {
 	const name = await notion.databases.retrieve({ database_id: NOTION_DATABASE_ID });
+	// @ts-ignore: name will have a title property
 	return await name.title[0].plain_text;
 }
 
-function updateNotionDB(platform, submission) {
+async function fetchNotionDBEntries() {
+	return await notion.databases.query({ database_id: NOTION_DATABASE_ID });
+}
+
+async function updateNotionDB(platform, submission) {
 }
 
 // Application Handling ===========================================================================
 
 function saveNewEnv(exit_code) {
-	console.log(`\nApplication terminating at ${new Date(Date.now()*1000).toDateString()}\n`);
+	const now = new Date(Date.now()*1000)
+	console.log(`\nApplication terminating at ${now.toString()}\n`);
 	process.exit(exit_code);
 }
 
@@ -192,13 +222,17 @@ function main() {
 
 			// Update the Notion database accordingly
 			console.log(`\nAdding ${platform} submissions to ${await NOTION_DB}...\n`);
+
+			let maxTimestamp = 0;
 			submissions.forEach(async (submission) => {
-					await updateNotionDB(platform, submission);
-					console.log(`\tAdded ${submission}`);
+				maxTimestamp = Math.max(maxTimestamp, submission.submission_timestamp);
+				await updateNotionDB(platform, submission);
+				console.log(`\tAdded ${submission}`);
 			})
 
 			// Update the last submission timestamp of each platform
-			platform.last_submission_timestamp = 0;
+			platform.last_submission_timestamp = maxTimestamp;
+
 		})();
 	})
 
@@ -208,4 +242,18 @@ function main() {
 // Running the Application
 // ================================================================================================
 
-main();
+// try {
+// 	main();
+// }
+// catch (error) {
+// 	handleError(error);
+// }
+
+try {
+	(async() => {
+		console.log(await fetchNotionDBEntries());
+	})();
+}
+catch(error) {
+	handleError(error);
+}
