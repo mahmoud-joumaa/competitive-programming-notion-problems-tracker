@@ -176,7 +176,6 @@ async function getNotionDatabaseName() {
 }
 
 async function fetchNotionDBEntries() {
-	return await notion.databases.query({ database_id: NOTION_DATABASE_ID });
 }
 
 async function updateNotionDB(platform, submission) {
@@ -248,12 +247,3 @@ function main() {
 // catch (error) {
 // 	handleError(error);
 // }
-
-try {
-	(async() => {
-		console.log(await fetchNotionDBEntries());
-	})();
-}
-catch(error) {
-	handleError(error);
-}
