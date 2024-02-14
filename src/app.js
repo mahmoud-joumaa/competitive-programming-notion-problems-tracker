@@ -98,7 +98,8 @@ async function main() {
 			}
 		}
 
-		cleanSubmissions() { // TODO: Add clean submissions logic
+		cleanSubmissions() {
+			return []
 		}
 
 		toString() {
@@ -117,7 +118,6 @@ async function main() {
 
 		async getUser() {
 			try {
-				console.log((await this.notion.users.list()));
 				return (await this.notion.users.list()).results.find(({type}) => type == "person").name;
 			}
 			catch(error) {
@@ -136,10 +136,15 @@ async function main() {
 
 		confirmCredentials(NOTION_USER, NOTION_DB) {
 			const duration = 30;
-			console.log(`Connected to workspace:\t${NOTION_USER}`);
+			if (NOTION_USER)
+				console.log(`Connected to workspace:\t${NOTION_USER}`);
 			console.log(`Connected to database: \t${NOTION_DB}`);
 			console.log(`\nTerminate the application within ${duration} seconds if the above credentials are incorrect...\n`);
-			return new Promise((resolve) => {setTimeout(() => {resolve("\n====================\nSyncing Has Started\n====================\n")}, duration*1000)});
+			return new Promise((resolve) => {setTimeout(() => {resolve("====================\nSyncing Has Started\n====================")}, duration*1000)});
+		}
+
+		async updateDB(platform, submissions) {
+			return null;
 		}
 
 	}
@@ -162,14 +167,16 @@ async function main() {
 
 	try {
 		// Welcoming the user
-		console.log("\nWelcome to the Competitve Programming Problems Tracker in Notion\n");
+		console.log("\n\n====================================================================================================\nWelcome to the Competitve Programming Problems Tracker in Notion\n====================================================================================================\n");
 
 		// Initialize Notion
+		console.log("\nDetecting Notion environment...")
 		const notion = new Notion(process.env.NOTION_INTEGRATION_KEY, process.env.NOTION_DATABASE_ID);
-		const NOTION_USER = await notion.getUser();
+		const NOTION_USER = (Number(process.env.DETECT_NOTION_USER) === 1) ? await notion.getUser() : null;
 		const NOTION_DB = await notion.getDB();
+		console.log("Detected Notion environment\n")
 
-		console.log(`${await notion.confirmCredentials(NOTION_USER, NOTION_DB)}\n`);
+		console.log(`\n${await notion.confirmCredentials(NOTION_USER, NOTION_DB)}\n`);
 
 		// Initialize all supported platforms
 		const codeforces = new Platform(codeforces_name, process.env.CODEFORCES_ID, Number(process.env.CODEFORCES_LAST_SUBMISSION_TIMESTAMP));
@@ -185,13 +192,21 @@ async function main() {
 		// Fetch submission from all supported platforms where the user has an id
 		for (let platform of platforms) {
 			// Get the submissions per platform
-			console.log(`\nFetching ${platform} Problems...\n`);
-			const submissions = await platform.fetchSubmissions();
+			console.log(`\nFetching ${platform} submissions...`);
+			const submissions_raw = await platform.fetchSubmissions();
+			console.log(`Fetched ${platform} submissions\n`)
+			// Cleaning the submissions into a relevant format
+			console.log(`\nFormatting ${platform} submissions...`)
+			const submissions = platform.cleanSubmissions(submissions_raw);
+			console.log(`Formatted ${platform} submissions\n`)
 			// Update the Notion database accordingly
-			console.log(`\nAdding ${platform} submissions to ${NOTION_DB}...\n`);
+			console.log(`\nAdding ${platform} submissions to ${NOTION_DB}...`);
+			await notion.updateDB(platform, submissions);
+			console.log(`Added ${platform} submissions to ${NOTION_DB}\n`);
 			// Save the new .env information for each platform
 			let maxTimestamp = 0;
-			for (let submission of Array.from(submissions)) {
+			for (let submission of submissions) {
+				// Update the maxTimestamp according to each submission
 			}
 			// Update the last submission timestamp of each platform
 			platform.last_submission_timestamp = maxTimestamp;
