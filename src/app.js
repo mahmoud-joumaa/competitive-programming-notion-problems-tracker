@@ -117,7 +117,8 @@ async function main() {
 
 		async getUser() {
 			try {
-				return await ""; // TODO: Add detecting Notion Workspace logic
+				console.log((await this.notion.users.list()));
+				return (await this.notion.users.list()).results.find(({type}) => type == "person").name;
 			}
 			catch(error) {
 				handleError(error);
@@ -126,14 +127,19 @@ async function main() {
 
 		async getDB() {
 			try {
-				return (await this.notion.databases.retrieve({ database_id: this.NOTION_DATABASE_ID })).name.title[0].plain_text;
+				return (await this.notion.databases.retrieve({ database_id: this.NOTION_DATABASE_ID })).title[0].plain_text;
 			}
 			catch(error) {
 				handleError(error);
 			}
 		}
 
-		toString() {
+		confirmCredentials(NOTION_USER, NOTION_DB) {
+			const duration = 30;
+			console.log(`Connected to workspace:\t${NOTION_USER}`);
+			console.log(`Connected to database: \t${NOTION_DB}`);
+			console.log(`\nTerminate the application within ${duration} seconds if the above credentials are incorrect...\n`);
+			return new Promise((resolve) => {setTimeout(() => {resolve("\n====================\nSyncing Has Started\n====================\n")}, duration*1000)});
 		}
 
 	}
@@ -146,8 +152,7 @@ async function main() {
 	}
 
 	function exitApplication(exit_code) {
-		const now = ""
-		console.log(`\nApplication terminating at ${now}\n`);
+		console.log(`\nApplication terminating at ${new Date()}\n`);
 		process.exit(exit_code);
 	}
 
@@ -155,33 +160,45 @@ async function main() {
 	// Running the program
 	// ==============================================================================================
 
-	// Initialize Notion
-	const notion = new Notion(process.env.NOTION_INTEGRATION_KEY, process.env.NOTION_DATABASE_ID);
-	const NOTION_USER = notion.getUser();
-	const NOTION_DB = notion.getDB();
+	try {
+		// Welcoming the user
+		console.log("\nWelcome to the Competitve Programming Problems Tracker in Notion\n");
 
-	// Initialize all supported platforms
-	const codeforces = new Platform(codeforces_name, process.env.CODEFORCES_ID, Number(process.env.CODEFORCES_LAST_SUBMISSION_TIMESTAMP));
-	const leetcode = new Platform(leetcode_name, process.env.LEETCODE_ID, Number(process.env.LEETCODE_LAST_SUBMISSION_TIMESTAMP));
+		// Initialize Notion
+		const notion = new Notion(process.env.NOTION_INTEGRATION_KEY, process.env.NOTION_DATABASE_ID);
+		const NOTION_USER = await notion.getUser();
+		const NOTION_DB = await notion.getDB();
 
-	// Only add the platforms where the user has an id to the set
-	const platforms = new Set()
-	if (codeforces.user_id) platforms.add(codeforces);
-	if (leetcode.user_id) platforms.add(leetcode);
+		console.log(`${await notion.confirmCredentials(NOTION_USER, NOTION_DB)}\n`);
 
-	// Fetch submission from all supported platforms where the user has an id
-	for (let platform of platforms) {
-		// Get the submissions per platform
-		console.log(`\nFetching ${platform} Problems...\n`);
-		const submissions = await platform.fetchSubmissions();
-		// Update the Notion database accordingly
-		console.log(`\nAdding ${platform} submissions to ${NOTION_DB}...\n`);
-		// Save the new .env information for each platform
-		let maxTimestamp = 0;
-		for (let submission of submissions) {
+		// Initialize all supported platforms
+		const codeforces = new Platform(codeforces_name, process.env.CODEFORCES_ID, Number(process.env.CODEFORCES_LAST_SUBMISSION_TIMESTAMP));
+		const leetcode = new Platform(leetcode_name, process.env.LEETCODE_ID, Number(process.env.LEETCODE_LAST_SUBMISSION_TIMESTAMP));
+		const vjudge = new Platform(leetcode_name, process.env.VJUDGE_ID, Number(process.env.VJUDGE_LAST_SUBMISSION_TIMESTAMP));
+
+		// Only add the platforms where the user has an id to the set
+		const platforms = new Set();
+		if (codeforces.user_id) platforms.add(codeforces);
+		if (leetcode.user_id) platforms.add(leetcode);
+		if (vjudge.user_id) platforms.add(vjudge);
+
+		// Fetch submission from all supported platforms where the user has an id
+		for (let platform of platforms) {
+			// Get the submissions per platform
+			console.log(`\nFetching ${platform} Problems...\n`);
+			const submissions = await platform.fetchSubmissions();
+			// Update the Notion database accordingly
+			console.log(`\nAdding ${platform} submissions to ${NOTION_DB}...\n`);
+			// Save the new .env information for each platform
+			let maxTimestamp = 0;
+			for (let submission of Array.from(submissions)) {
+			}
+			// Update the last submission timestamp of each platform
+			platform.last_submission_timestamp = maxTimestamp;
 		}
-		// Update the last submission timestamp of each platform
-		platform.last_submission_timestamp = maxTimestamp;
+	}
+	catch(error) {
+		handleError(error);
 	}
 
 }
