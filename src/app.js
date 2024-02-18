@@ -1,32 +1,40 @@
 async function main() {
 
-	// Libraries & Packages ===========================================================================
+	// Libraries & Packages =========================================================================
 
 	const axios = require('axios');
 	const cheerio = require('cheerio');
+	const crypto = require("crypto")
+
 	const { Client } = require('@notionhq/client');
 
-	// save the lowercase names of each platform (so if anything changes not to parse through all the case statements)
+	// platform-specific consts
 	const codeforces_name = "codeforces";
+	const codeforces_id_threshold = 100000; // any id greater than this is placed in the gym
+
 	const leetcode_name = "leetcode";
 
-	// Classes ========================================================================================
+	const vjudge_name = "vjudge";
+
+	// Classes ======================================================================================
 
 	class Problem {
 
-		constructor(id, name, url, difficulty, tags) {
+		constructor(platform, id, name, difficulty, tags) {
 			this.id = id;
 			this.name = name;
-			this.url = url;
+			this.url = Problem.generateUrl(platform, id);
 			this.difficulty = difficulty;
 			this.tags = tags;
 		}
 
-		static generateProblemUrl(platform_name) {
+		static generateUrl(platform, id) {
 			let problem_url = "";
-			switch (platform_name) {
+			switch (platform.name) {
 				case codeforces_name:
-					problem_url = ``;
+					const contest_id = id.split('/')[0];
+					const problem_id = id.split('/')[1];
+					problem_url = `https://codeforces.com/${(contest_id>codeforces_id_threshold)?"gym":"contest"}/${contest_id}/problem/${problem_id}`;
 					break;
 			}
 			return problem_url;
@@ -40,19 +48,19 @@ async function main() {
 
 	class Submission {
 
-		constructor(id, timestamp, verdict, url, problem) {
+		constructor(id, verdict, url, problem) {
 			this.id = id;
-			this.timestamp = timestamp;
 			this.verdict = verdict;
 			this.url = url;
 			this.problem = problem;
 		}
 
-		static generateSubmissionUrl(platform_name) {
+		static generateUrl(platform, problem, id) {
 			let submission_url = "";
-			switch (platform_name) {
+			switch (platform.name) {
 				case codeforces_name:
-					submission_url = ``;
+					const contest_id = problem.id.split('/')[0];
+					submission_url = `https://codeforces.com/${(contest_id>codeforces_id_threshold)?"gym":"contest"}/${contest_id}/submission/${id}`;
 					break;
 			}
 			return submission_url;
@@ -66,40 +74,92 @@ async function main() {
 
 	class Platform {
 
-		constructor(name, user_id, last_submission_timestamp) {
+		constructor(name, user_id, last_submission_timestamp, key=null, secret=null) {
 			this.name = name.toLowerCase();
 			this.base_url = Platform.generateBaseUrl(name);
+			this.max_url_length = Platform.getMaxUrlLength(name);
 			this.user_id = user_id;
 			this.last_submission_timestamp = last_submission_timestamp;
+			this.key = key;
+			this.secret = secret;
 		}
 
 		static generateBaseUrl(platform_name) {
 			let url = "";
 			switch (platform_name) {
 				case codeforces_name:
-					url = "https://codeforces.com/api/";
+					url = "https://codeforces.com/api";
 					break;
 			}
 			return url;
 		}
 
-		async fetchSubmissions() {
+		static getMaxUrlLength(platform_name) {
+			const extra = 5;
+			let maxUrlLength = {problem: 0, submission: 0};
+			switch (platform_name) {
+				case codeforces_name:
+					maxUrlLength.problem = 45;
+					maxUrlLength.submission = 56;
+					break;
+			}
+			maxUrlLength.problem += extra; maxUrlLength.submission += extra;
+			return maxUrlLength;
+		}
+
+		static generateRandomString(n) {
+			const dictionary = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+			let rand = "";
+			for (let i = 0; i < n; i++) {
+				const index = Math.floor(Math.random() * (dictionary.length));
+				rand += dictionary[index];
+			}
+			return rand;
+		}
+
+		async fetchData() {
 			let submissions = [];
 			// fetch all submissions of the current platform then return only the submissions that have not been synced before
-			try { // TODO: Add throw new Error handling logic
-				switch (this.name) {
-					case codeforces_name:
-						submissions = await axios.get(`${this.base_url}user.status?handle=${this.user_id}`);
-						return (submissions.data.result).filter(submission => submission.creationTimeSeconds > this.last_submission_timestamp);
-				}
-			}
-			catch(error) {
-				handleError(error);
+			switch (this.name) {
+				case codeforces_name:
+					const now = Math.floor((new Date()).getTime()/1000);
+					const randomSig = Platform.generateRandomString(6);
+					const fetchRequestParams = `user.status?apiKey=${process.env.CODEFORCES_KEY}&handle=${process.env.CODEFORCES_ID}&time=${now}`;
+					submissions = await axios.get(`${this.base_url}/${fetchRequestParams}&apiSig=${randomSig}${crypto.createHash('sha512').update(`${randomSig}/${fetchRequestParams}#${process.env.CODEFORCES_SECRET}`).digest('hex')}`);
+					return (submissions.data.result).filter(submission => submission.creationTimeSeconds > this.last_submission_timestamp);
 			}
 		}
 
-		cleanSubmissions() {
-			return []
+		getProblem(data) {
+			let id; let name; let difficulty; let tags;
+			switch (this.name) {
+				case codeforces_name:
+					id = `${data.problem.contestId}/${data.problem.index}`;
+					name = `${data.problem.name}`;
+					difficulty = `${data.problem.rating}`;
+					tags = `${data.problem.tags}`;
+					break;
+			}
+			return new Problem(this, id, name, difficulty, tags);
+		}
+
+		// constructor(id, verdict, url, problem)
+		cleanSubmissions(submissions_data, problems) {
+			let submissions = [];
+			let id; let verdict; let url; let problem;
+			for (let i = 0; i < problems.length; i++) {
+				const submission = submissions_data[i];
+				switch (this.name) {
+					case codeforces_name:
+						id = submission.id;
+						verdict = submission.verdit;
+						problem = problems[i];
+						url = Submission.generateUrl(this, problem, id);
+						break;
+				}
+				submissions.push(new Submission(id, verdict, url, problem));
+			}
+			return submissions;
 		}
 
 		toString() {
@@ -135,7 +195,7 @@ async function main() {
 		}
 
 		confirmCredentials(NOTION_USER, NOTION_DB) {
-			const duration = 30;
+			const duration = 0;
 			if (NOTION_USER)
 				console.log(`Connected to workspace:\t${NOTION_USER}`);
 			console.log(`Connected to database: \t${NOTION_DB}`);
@@ -143,8 +203,24 @@ async function main() {
 			return new Promise((resolve) => {setTimeout(() => {resolve("====================\nSyncing Has Started\n====================")}, duration*1000)});
 		}
 
+		async fetchEntries() {
+			const entries = [];
+			let has_more = true;
+			let next_cursor;
+			while (has_more) {
+				const query = await this.notion.databases.query({database_id: this.NOTION_DATABASE_ID, start_cursor: next_cursor});
+				entries.push(...query.results);
+				has_more = query.has_more;
+				next_cursor = query.next_cursor;
+			}
+			return entries;
+		}
+
 		async updateDB(platform, submissions) {
-			return null;
+			const entries = await this.fetchEntries();
+			for (let entry of entries) {
+				console.log(entry.properties.Platform.relation);
+			}
 		}
 
 	}
@@ -157,7 +233,7 @@ async function main() {
 	}
 
 	function exitApplication(exit_code) {
-		console.log(`\nApplication terminating at ${new Date()}\n`);
+		console.log(`\nApplication terminating with error code ${exit_code} at ${new Date()}\n`);
 		process.exit(exit_code);
 	}
 
@@ -179,25 +255,34 @@ async function main() {
 		console.log(`\n${await notion.confirmCredentials(NOTION_USER, NOTION_DB)}\n`);
 
 		// Initialize all supported platforms
-		const codeforces = new Platform(codeforces_name, process.env.CODEFORCES_ID, Number(process.env.CODEFORCES_LAST_SUBMISSION_TIMESTAMP));
+		const codeforces = new Platform(codeforces_name, process.env.CODEFORCES_ID, Number(process.env.CODEFORCES_LAST_SUBMISSION_TIMESTAMP), process.env.CODEFORCES_KEY, process.env.CODEFORCES_SECRET);
 		const leetcode = new Platform(leetcode_name, process.env.LEETCODE_ID, Number(process.env.LEETCODE_LAST_SUBMISSION_TIMESTAMP));
-		const vjudge = new Platform(leetcode_name, process.env.VJUDGE_ID, Number(process.env.VJUDGE_LAST_SUBMISSION_TIMESTAMP));
+		const vjudge = new Platform(vjudge_name, process.env.VJUDGE_ID, Number(process.env.VJUDGE_LAST_SUBMISSION_TIMESTAMP));
 
 		// Only add the platforms where the user has an id to the set
 		const platforms = new Set();
 		if (codeforces.user_id) platforms.add(codeforces);
-		if (leetcode.user_id) platforms.add(leetcode);
-		if (vjudge.user_id) platforms.add(vjudge);
+		// if (leetcode.user_id) platforms.add(leetcode);
+		// if (vjudge.user_id) platforms.add(vjudge);
 
 		// Fetch submission from all supported platforms where the user has an id
 		for (let platform of platforms) {
 			// Get the submissions per platform
 			console.log(`\nFetching ${platform} submissions...`);
-			const submissions_raw = await platform.fetchSubmissions();
+			const submissions_data = await platform.fetchData();
+			let problems = [];
+			for (let data of submissions_data) {
+				const problem = platform.getProblem(data);
+				console.log(`\tFetched from ${(problem.url).padEnd(platform.max_url_length.problem, " ")} ${problem}`);
+				problems.push(problem);
+			}
 			console.log(`Fetched ${platform} submissions\n`)
 			// Cleaning the submissions into a relevant format
 			console.log(`\nFormatting ${platform} submissions...`)
-			const submissions = platform.cleanSubmissions(submissions_raw);
+			const submissions = platform.cleanSubmissions(submissions_data, problems);
+			for (let submission of submissions) {
+				console.log(`\tFormatted from ${(submission.url).padEnd(platform.max_url_length.submission, " ")} ${submission.problem}`);
+			}
 			console.log(`Formatted ${platform} submissions\n`)
 			// Update the Notion database accordingly
 			console.log(`\nAdding ${platform} submissions to ${NOTION_DB}...`);
@@ -211,6 +296,14 @@ async function main() {
 			// Update the last submission timestamp of each platform
 			platform.last_submission_timestamp = maxTimestamp;
 		}
+
+		// Save the updated information in .env
+		console.log("\nSaving the updated information in the .env file...");
+		console.log("Saved the updated information in the .env file\n");
+
+		// Exit
+		console.log("\nExiting the application...");
+		exitApplication(0);
 	}
 	catch(error) {
 		handleError(error);
