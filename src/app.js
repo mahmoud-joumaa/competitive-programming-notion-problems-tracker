@@ -8,7 +8,7 @@ async function main() {
 
 	const { Client } = require('@notionhq/client');
 
-	// platform-specific consts
+	// platform-specific properties
 	const codeforces_name = "codeforces";
 	const codeforces_id_threshold = 100000; // any id greater than this is placed in the gym
 
@@ -48,9 +48,10 @@ async function main() {
 
 	class Submission {
 
-		constructor(id, url, verdict, language, problem) {
+		constructor(id, url, timestamp, verdict, language, problem) {
 			this.id = id;
 			this.url = url;
+			this.timestamp = timestamp;
 			this.verdict = verdict;
 			this.language = language;
 			this.problem = problem;
@@ -152,25 +153,45 @@ async function main() {
 		// constructor(id, verdict, url, problem)
 		cleanSubmissions(submissions_data, problems) {
 			let submissions = [];
-			let id; let verdict; let url; let language; let problem;
+			let id; let verdict; let url; let timestamp; let language; let problem;
 			for (let i = 0; i < problems.length; i++) {
 				const submission = submissions_data[i];
 				switch (this.name) {
 					case codeforces_name:
 						id = submission.id;
 						verdict = submission.verdit;
+						timestamp = submission.creationTimeSeconds;
 						language = Platform.cleanLanguage(submission.programmingLanguage);
 						problem = problems[i];
 						url = Submission.generateUrl(this, problem, id);
 						break;
 				}
-				submissions.push(new Submission(id, url, verdict, language, problem));
+				submissions.push(new Submission(id, url, timestamp, verdict, language, problem));
 			}
 			return submissions;
 		}
 
 		toString() {
 			return this.name;
+		}
+
+	}
+
+	class Entry {
+
+		constructor(id, url, name, tags, platform, difficulty, languages_accepted, languages_attempted) {
+			this.id = id;
+			this.url = url;
+			this.name = name;
+			this.tags = tags;
+			this.platform = platform;
+			this.difficulty = difficulty;
+			this.languages_accepted = languages_accepted;
+			this.languages_attempted = languages_attempted;
+		}
+
+		toString() {
+			return `${this.id} ${this.name} ${this.url}`;
 		}
 
 	}
@@ -184,21 +205,11 @@ async function main() {
 		}
 
 		async getUser() {
-			try {
-				return (await this.notion.users.list()).results.find(({type}) => type == "person").name;
-			}
-			catch(error) {
-				handleError(error);
-			}
+			return (await this.notion.users.list()).results.find(({type}) => type == "person").name;
 		}
 
 		async getDB() {
-			try {
-				return (await this.notion.databases.retrieve({ database_id: this.NOTION_DATABASE_ID })).title[0].plain_text;
-			}
-			catch(error) {
-				handleError(error);
-			}
+			return (await this.notion.databases.retrieve({ database_id: this.NOTION_DATABASE_ID })).title[0].plain_text;
 		}
 
 		confirmCredentials(NOTION_USER, NOTION_DB) {
@@ -210,24 +221,46 @@ async function main() {
 			return new Promise((resolve) => {setTimeout(() => {resolve("====================\nSyncing Has Started\n====================")}, duration*1000)});
 		}
 
-		async fetchEntries() {
-			const entries = new Set();
+		async fetchEntries(platform) {
+
+			const entries = {};
 			let has_more = true;
-			let next_cursor;
+			let next_cursor = undefined;
 			while (has_more) {
-				const query = await this.notion.databases.query({database_id: this.NOTION_DATABASE_ID, start_cursor: next_cursor});
-				entries.add(...query.results);
+				// Fetch the first batch of entries
+				const query = (await this.notion.databases.query({ database_id: this.NOTION_DATABASE_ID, filter: { "property": "Platform", "select": { "equals": platform.name } }, start_cursor: next_cursor }));
+				// Clean the object and add it to the entries array
+				for (let result of query.results) {
+					const properties = result.properties;
+					const id = (properties["Problem ID"].rich_text.length > 0) ? properties["Problem ID"].rich_text[0].plain_text : null; if (!id) continue;
+					const url = properties.URL.url;
+					const name = properties["Problem Name"].title[0].plain_text;
+					const tags = properties.Tags.multi_select; for (let i = 0; i < tags.length; i++) tags[i] = tags[i].name;
+					const platform = properties.Platform.select.name;
+					const difficulty = properties["Difficulty (Raw)"].rich_text[0].plain_text;
+					const languages_accepted = properties["Languages Accepted"].multi_select; for (let i = 0; i < languages_accepted.length; i++) languages_accepted[i] = languages_accepted[i].name;
+					const languages_attempted = properties["Languages Attempted"].multi_select; for (let i = 0; i < languages_attempted.length; i++) languages_attempted[i] = languages_attempted[i].name;
+					const entry = new Entry(id, url, name, tags, platform, difficulty, languages_accepted, languages_attempted);
+					entries[id] = entry;
+					console.log(`\t\tFetched ${entry}`);
+				}
+				// Check if there are more entries to fetch
 				has_more = query.has_more;
 				next_cursor = query.next_cursor;
 			}
 			return entries;
 		}
 
-		async updateDB(platform, submissions) {
-			const entries = await this.fetchEntries();
-			for (let entry of entries) {
-				console.log(entry);
+		async updateDB(NOTION_DB, platform, submissions) {
+			console.log(`\n\tFetching entries in ${NOTION_DB}...`)
+			const entries = await this.fetchEntries(platform);
+			console.log(`\tFetched entries in ${NOTION_DB}\n`)
+			console.log(`\n\tProcessing Submissions...`)
+			for (let submission of submissions) {
+				const problem = submission.problem;
 			}
+			console.log(entries["x"]);
+			console.log(`\tProcessed Submissions\n`)
 		}
 
 	}
@@ -239,8 +272,8 @@ async function main() {
 		exitApplication(1);
 	}
 
-	function exitApplication(exit_code) {
-		console.log(`\nApplication terminating with error code ${exit_code} at ${new Date()}\n`);
+	function exitApplication(exit_code=0) {
+		console.log(`\nApplication terminating with exit code ${exit_code} at ${new Date()}\n`);
 		process.exit(exit_code);
 	}
 
@@ -292,13 +325,14 @@ async function main() {
 			}
 			console.log(`Formatted ${platform} submissions\n`)
 			// Update the Notion database accordingly
-			console.log(`\nAdding ${platform} submissions to ${NOTION_DB}...`);
-			await notion.updateDB(platform, submissions);
-			console.log(`Added ${platform} submissions to ${NOTION_DB}\n`);
+			console.log(`\nUpdating ${platform} submissions in ${NOTION_DB}...`);
+			await notion.updateDB(NOTION_DB, platform, submissions);
+			console.log(`Updated ${platform} submissions in ${NOTION_DB}\n`);
 			// Save the new .env information for each platform
 			let maxTimestamp = 0;
 			for (let submission of submissions) {
 				// Update the maxTimestamp according to each submission
+				maxTimestamp = Math.max(maxTimestamp, submission.timestamp);
 			}
 			// Update the last submission timestamp of each platform
 			platform.last_submission_timestamp = maxTimestamp;
@@ -310,7 +344,7 @@ async function main() {
 
 		// Exit
 		console.log("\nExiting the application...");
-		exitApplication(0);
+		exitApplication();
 	}
 	catch(error) {
 		handleError(error);
