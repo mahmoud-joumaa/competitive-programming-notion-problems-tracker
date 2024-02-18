@@ -48,10 +48,11 @@ async function main() {
 
 	class Submission {
 
-		constructor(id, verdict, url, problem) {
+		constructor(id, url, verdict, language, problem) {
 			this.id = id;
-			this.verdict = verdict;
 			this.url = url;
+			this.verdict = verdict;
+			this.language = language;
 			this.problem = problem;
 		}
 
@@ -117,6 +118,11 @@ async function main() {
 			return rand;
 		}
 
+		static cleanLanguage(language) {
+			language = language.toLowerCase();
+			if (language.includes("c++") || language.includes("cpp")) return "C++";
+		}
+
 		async fetchData() {
 			let submissions = [];
 			// fetch all submissions of the current platform then return only the submissions that have not been synced before
@@ -146,18 +152,19 @@ async function main() {
 		// constructor(id, verdict, url, problem)
 		cleanSubmissions(submissions_data, problems) {
 			let submissions = [];
-			let id; let verdict; let url; let problem;
+			let id; let verdict; let url; let language; let problem;
 			for (let i = 0; i < problems.length; i++) {
 				const submission = submissions_data[i];
 				switch (this.name) {
 					case codeforces_name:
 						id = submission.id;
 						verdict = submission.verdit;
+						language = Platform.cleanLanguage(submission.programmingLanguage);
 						problem = problems[i];
 						url = Submission.generateUrl(this, problem, id);
 						break;
 				}
-				submissions.push(new Submission(id, verdict, url, problem));
+				submissions.push(new Submission(id, url, verdict, language, problem));
 			}
 			return submissions;
 		}
@@ -204,12 +211,12 @@ async function main() {
 		}
 
 		async fetchEntries() {
-			const entries = [];
+			const entries = new Set();
 			let has_more = true;
 			let next_cursor;
 			while (has_more) {
 				const query = await this.notion.databases.query({database_id: this.NOTION_DATABASE_ID, start_cursor: next_cursor});
-				entries.push(...query.results);
+				entries.add(...query.results);
 				has_more = query.has_more;
 				next_cursor = query.next_cursor;
 			}
@@ -219,7 +226,7 @@ async function main() {
 		async updateDB(platform, submissions) {
 			const entries = await this.fetchEntries();
 			for (let entry of entries) {
-				console.log(entry.properties.Platform.relation);
+				console.log(entry);
 			}
 		}
 
