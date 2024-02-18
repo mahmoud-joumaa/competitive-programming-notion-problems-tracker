@@ -52,8 +52,8 @@ async function main() {
 			this.id = id;
 			this.url = url;
 			this.timestamp = timestamp;
-			this.verdict = verdict;
-			this.language = language;
+			// this.verdict = Platform.cleanVerdict(verdict);
+			this.language = Platform.cleanLanguage(language);
 			this.problem = problem;
 		}
 
@@ -66,6 +66,13 @@ async function main() {
 					break;
 			}
 			return submission_url;
+		}
+
+		async getCode(platform) {
+			switch (platform.name) {
+				case codeforces_name:
+					return cheerio.load((await axios.get(this.url)).data)("#program-source-text").text();
+			}
 		}
 
 		toString() {
@@ -119,6 +126,11 @@ async function main() {
 			return rand;
 		}
 
+		static cleanVerdict(verdict) {
+			verdict = verdict.toLowerCase();
+			if (verdict == "ok") return "accepted";
+		}
+
 		static cleanLanguage(language) {
 			language = language.toLowerCase();
 			if (language.includes("c++") || language.includes("cpp")) return "C++";
@@ -161,7 +173,7 @@ async function main() {
 						id = submission.id;
 						verdict = submission.verdit;
 						timestamp = submission.creationTimeSeconds;
-						language = Platform.cleanLanguage(submission.programmingLanguage);
+						language = submission.programmingLanguage;
 						problem = problems[i];
 						url = Submission.generateUrl(this, problem, id);
 						break;
@@ -194,7 +206,7 @@ async function main() {
 			const properties = entry.properties;
 			const id = (properties["Problem ID"].rich_text.length > 0) ? properties["Problem ID"].rich_text[0].plain_text : null; if (!id) return null;
 			const url = properties.URL.url;
-			const name = properties["Problem Name"].title[0].plain_text;
+			const name = (properties["Problem Name"].title.length > 0) ? properties["Problem Name"].title[0].plain_text : null; if (!name) return null;
 			const tags = properties.Tags.multi_select; for (let i = 0; i < tags.length; i++) tags[i] = tags[i].name;
 			const platform = properties.Platform.select.name;
 			const difficulty = properties["Difficulty (Raw)"].rich_text[0].plain_text;
@@ -297,8 +309,9 @@ async function main() {
 				// Clean the object and add it to the entries array
 				for (let result of query.results) {
 					const entry = Entry.cleanEntry(result);
+					// If the entry is null, ignore it and continue to the next iteration. Otherwise, add it to entries
 					if (!entry) continue;
-					entries[id] = entry;
+					entries[entry.id] = entry;
 					console.log(`\t\tFetched ${entry}`);
 				}
 				// Check if there are more entries to fetch
@@ -309,16 +322,28 @@ async function main() {
 		}
 
 		async updateDB(NOTION_DB, platform, submissions) {
-			console.log(`\n\tFetching entries in ${NOTION_DB}...`)
+			console.log(`\n\tFetching entries from ${NOTION_DB}...`)
 			const entries = await this.fetchEntries(platform);
-			console.log(`\tFetched entries in ${NOTION_DB}\n`)
+			console.log(`\tFetched entries from ${NOTION_DB}\n`)
 			console.log(`\n\tProcessing Submissions...`)
 			for (let submission of submissions) {
 				const problem = submission.problem;
 				// Check if this problem has not already been attempted before, add an entry for it
 				if (!entries[problem.id]) {
-					console.log(`\t\tCreating an entry for ${problem.id} in ${NOTION_DB}...`);
 					entries[problem.id] = Entry.cleanEntry(await this.createPage(platform, problem));
+					console.log(`\t\tCreating an entry for ${problem} in ${NOTION_DB}...`);
+				}
+				// Check if this problem was attempted before in this language
+				if (!entries[problem.id].languages_attempted.includes(submission.language)) entries[problem.id].languages_attempted.push(submission.language);
+				// Check if this problem got accepted before in this language
+				if (submission.verdict == "accepted") {
+					// If this problem is getting accepted for the first time with this language, add it to the list of accepted languages
+					if (!entries[problem.id].languages_accepted.includes(submission.language))
+						entries[problem.id].languages_accepted.push(submission.language);
+					// Get the code submission that got accepted
+					const code = submission.getCode(platform);
+					console.log(code);
+					exitApplication(3);
 				}
 			}
 			console.log(`\tProcessed Submissions\n`)
