@@ -191,7 +191,7 @@ async function main() {
 
 	class Entry {
 
-		constructor(id, url, name, tags, platform, difficulty, languages_accepted, languages_attempted) {
+		constructor(page_id, id, url, name, tags, platform, difficulty, languages_accepted, languages_attempted) {
 			this.id = id;
 			this.url = url;
 			this.name = name;
@@ -203,6 +203,7 @@ async function main() {
 		}
 
 		static cleanEntry(entry) {
+			const page_id = entry.id;
 			const properties = entry.properties;
 			const id = (properties["Problem ID"].rich_text.length > 0) ? properties["Problem ID"].rich_text[0].plain_text : null; if (!id) return null;
 			const url = properties.URL.url;
@@ -212,7 +213,7 @@ async function main() {
 			const difficulty = properties["Difficulty (Raw)"].rich_text[0].plain_text;
 			const languages_accepted = properties["Languages Accepted"].multi_select; for (let i = 0; i < languages_accepted.length; i++) languages_accepted[i] = languages_accepted[i].name;
 			const languages_attempted = properties["Languages Attempted"].multi_select; for (let i = 0; i < languages_attempted.length; i++) languages_attempted[i] = languages_attempted[i].name;
-			return new Entry(id, url, name, tags, platform, difficulty, languages_accepted, languages_attempted);
+			return new Entry(page_id, id, url, name, tags, platform, difficulty, languages_accepted, languages_attempted);
 		}
 
 		toString() {
@@ -331,12 +332,13 @@ async function main() {
 				// Check if this problem has not already been attempted before, add an entry for it
 				if (!entries[problem.id]) {
 					entries[problem.id] = Entry.cleanEntry(await this.createPage(platform, problem));
-					console.log(`\t\tCreating an entry for ${problem} in ${NOTION_DB}...`);
+					console.log(`\t\tCreated ${problem}`);
 				}
+				continue; // COMBAK:
 				// Check if this problem was attempted before in this language
-				if (!entries[problem.id].languages_attempted.includes(submission.language)) entries[problem.id].languages_attempted.push(submission.language);
+				if (!entries[problem.id].languages_attempted.includes(submission.language)) console.log("ADDING THE LANGUAGE"); // COMBAK:
 				// Check if this problem got accepted before in this language
-				if (submission.verdict == "accepted") {
+				if (submission.verdict == "accepted") { // FIXME:
 					// If this problem is getting accepted for the first time with this language, add it to the list of accepted languages
 					if (!entries[problem.id].languages_accepted.includes(submission.language))
 						entries[problem.id].languages_accepted.push(submission.language);
