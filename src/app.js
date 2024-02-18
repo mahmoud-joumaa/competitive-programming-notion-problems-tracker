@@ -144,7 +144,7 @@ async function main() {
 					id = `${data.problem.contestId}/${data.problem.index}`;
 					name = `${data.problem.name}`;
 					difficulty = `${data.problem.rating}`;
-					tags = `${data.problem.tags}`;
+					tags = []; for (let tag of data.problem.tags) tags.push({ "name": tag });
 					break;
 			}
 			return new Problem(this, id, name, difficulty, tags);
@@ -190,6 +190,19 @@ async function main() {
 			this.languages_attempted = languages_attempted;
 		}
 
+		static cleanEntry(entry) {
+			const properties = entry.properties;
+			const id = (properties["Problem ID"].rich_text.length > 0) ? properties["Problem ID"].rich_text[0].plain_text : null; if (!id) return null;
+			const url = properties.URL.url;
+			const name = properties["Problem Name"].title[0].plain_text;
+			const tags = properties.Tags.multi_select; for (let i = 0; i < tags.length; i++) tags[i] = tags[i].name;
+			const platform = properties.Platform.select.name;
+			const difficulty = properties["Difficulty (Raw)"].rich_text[0].plain_text;
+			const languages_accepted = properties["Languages Accepted"].multi_select; for (let i = 0; i < languages_accepted.length; i++) languages_accepted[i] = languages_accepted[i].name;
+			const languages_attempted = properties["Languages Attempted"].multi_select; for (let i = 0; i < languages_attempted.length; i++) languages_attempted[i] = languages_attempted[i].name;
+			return new Entry(id, url, name, tags, platform, difficulty, languages_accepted, languages_attempted);
+		}
+
 		toString() {
 			return `${this.id} ${this.name} ${this.url}`;
 		}
@@ -221,6 +234,58 @@ async function main() {
 			return new Promise((resolve) => {setTimeout(() => {resolve("====================\nSyncing Has Started\n====================")}, duration*1000)});
 		}
 
+		async createPage(platform, problem) {
+			const page_data = {
+				"parent": {
+					"type": "database_id",
+					"database_id": this.NOTION_DATABASE_ID
+				},
+				"properties": {
+					"Problem ID": {
+						"rich_text": [
+							{
+								"type": "text",
+								"text": {
+									"content": problem.id
+								}
+							}
+						]
+					},
+					"Problem Name": {
+						"title": [
+							{
+								"text": {
+									"content": problem.name
+								}
+							}
+						]
+					},
+					"URL": {
+						"url": problem.url
+					},
+					"Difficulty (Raw)": {
+						"rich_text": [
+							{
+								"type": "text",
+								"text": {
+									"content": problem.difficulty
+								}
+							}
+						]
+					},
+					"Tags": {
+						"multi_select": problem.tags
+					},
+					"Platform": {
+						"select": {
+							"name": platform.name
+						}
+					}
+				}
+			};
+			return await this.notion.pages.create(page_data);
+		}
+
 		async fetchEntries(platform) {
 
 			const entries = {};
@@ -231,16 +296,8 @@ async function main() {
 				const query = (await this.notion.databases.query({ database_id: this.NOTION_DATABASE_ID, filter: { "property": "Platform", "select": { "equals": platform.name } }, start_cursor: next_cursor }));
 				// Clean the object and add it to the entries array
 				for (let result of query.results) {
-					const properties = result.properties;
-					const id = (properties["Problem ID"].rich_text.length > 0) ? properties["Problem ID"].rich_text[0].plain_text : null; if (!id) continue;
-					const url = properties.URL.url;
-					const name = properties["Problem Name"].title[0].plain_text;
-					const tags = properties.Tags.multi_select; for (let i = 0; i < tags.length; i++) tags[i] = tags[i].name;
-					const platform = properties.Platform.select.name;
-					const difficulty = properties["Difficulty (Raw)"].rich_text[0].plain_text;
-					const languages_accepted = properties["Languages Accepted"].multi_select; for (let i = 0; i < languages_accepted.length; i++) languages_accepted[i] = languages_accepted[i].name;
-					const languages_attempted = properties["Languages Attempted"].multi_select; for (let i = 0; i < languages_attempted.length; i++) languages_attempted[i] = languages_attempted[i].name;
-					const entry = new Entry(id, url, name, tags, platform, difficulty, languages_accepted, languages_attempted);
+					const entry = Entry.cleanEntry(result);
+					if (!entry) continue;
 					entries[id] = entry;
 					console.log(`\t\tFetched ${entry}`);
 				}
@@ -258,8 +315,12 @@ async function main() {
 			console.log(`\n\tProcessing Submissions...`)
 			for (let submission of submissions) {
 				const problem = submission.problem;
+				// Check if this problem has not already been attempted before, add an entry for it
+				if (!entries[problem.id]) {
+					console.log(`\t\tCreating an entry for ${problem.id} in ${NOTION_DB}...`);
+					entries[problem.id] = Entry.cleanEntry(await this.createPage(platform, problem));
+				}
 			}
-			console.log(entries["x"]);
 			console.log(`\tProcessed Submissions\n`)
 		}
 
