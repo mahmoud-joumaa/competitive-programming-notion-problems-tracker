@@ -52,7 +52,7 @@ async function main() {
 			this.id = id;
 			this.url = url;
 			this.timestamp = timestamp;
-			// this.verdict = Platform.cleanVerdict(verdict);
+			this.verdict = Platform.cleanVerdict(verdict);
 			this.language = Platform.cleanLanguage(language);
 			this.problem = problem;
 		}
@@ -162,7 +162,6 @@ async function main() {
 			return new Problem(this, id, name, difficulty, tags);
 		}
 
-		// constructor(id, verdict, url, problem)
 		cleanSubmissions(submissions_data, problems) {
 			let submissions = [];
 			let id; let verdict; let url; let timestamp; let language; let problem;
@@ -171,7 +170,7 @@ async function main() {
 				switch (this.name) {
 					case codeforces_name:
 						id = submission.id;
-						verdict = submission.verdit;
+						verdict = submission.verdict;
 						timestamp = submission.creationTimeSeconds;
 						language = submission.programmingLanguage;
 						problem = problems[i];
@@ -192,6 +191,7 @@ async function main() {
 	class Entry {
 
 		constructor(page_id, id, url, name, tags, platform, difficulty, languages_accepted, languages_attempted) {
+			this.page_id = page_id;
 			this.id = id;
 			this.url = url;
 			this.name = name;
@@ -322,6 +322,38 @@ async function main() {
 			return entries;
 		}
 
+		convertToMultiSelect(option_names) {
+			const options = [];
+			for (let name of option_names) options.push({ "name": name });
+			return options;
+		}
+
+		async updateAttemptedLanguages(id, values) {
+			values = this.convertToMultiSelect(values);
+			const data = {
+				page_id: id,
+				properties: {
+					"Languages Attempted": {
+						"multi_select": values
+					}
+				}
+			}
+			return await this.notion.pages.update(data);
+		}
+
+		async updateAcceptedLanguages(id, values) {
+			values = this.convertToMultiSelect(values);
+			const data = {
+				page_id: id,
+				properties: {
+					"Languages Accepted": {
+						"multi_select": values
+					}
+				}
+			}
+			return await this.notion.pages.update(data);
+		}
+
 		async updateDB(NOTION_DB, platform, submissions) {
 			console.log(`\n\tFetching entries from ${NOTION_DB}...`)
 			const entries = await this.fetchEntries(platform);
@@ -334,19 +366,33 @@ async function main() {
 					entries[problem.id] = Entry.cleanEntry(await this.createPage(platform, problem));
 					console.log(`\t\tCreated ${problem}`);
 				}
-				continue; // COMBAK:
+				else {
+					console.log(`\t\tAlready fetched ${problem}`);
+				}
+				const entry = entries[problem.id];
 				// Check if this problem was attempted before in this language
-				if (!entries[problem.id].languages_attempted.includes(submission.language)) console.log("ADDING THE LANGUAGE"); // COMBAK:
+				if (!entry.languages_attempted.includes(submission.language)) {
+					await this.updateAttemptedLanguages(entry.page_id, [...entry.languages_attempted, submission.language]);
+				}
+				console.log(`\t\t\t[PENDING] ${submission.language} solution for ${problem}`);
 				// Check if this problem got accepted before in this language
-				if (submission.verdict == "accepted") { // FIXME:
+				if (submission.verdict == "accepted") {
 					// If this problem is getting accepted for the first time with this language, add it to the list of accepted languages
-					if (!entries[problem.id].languages_accepted.includes(submission.language))
-						entries[problem.id].languages_accepted.push(submission.language);
+					if (!entries[problem.id].languages_accepted.includes(submission.language)) {
+						await this.updateAcceptedLanguages(entry.page_id, [...entry.languages_accepted, submission.language]);
+						console.log(`\t\t\t[ACCPETED] ${submission.language} solution for ${problem} `);
+					}
+					continue; // COMBAK:
 					// Get the code submission that got accepted
 					const code = submission.getCode(platform);
 					console.log(code);
 					exitApplication(3);
 				}
+				else {
+					console.log(`\t\t\t[REJECTED] ${submission.language} solution for ${problem}`);
+				}
+				// visually break the logs apart
+				console.log();
 			}
 			console.log(`\tProcessed Submissions\n`)
 		}
@@ -355,9 +401,9 @@ async function main() {
 
 	// Functions ====================================================================================
 
-	function handleError(error) {
+	function handleError(error, exit_code=1) {
 		console.error(`\nApplication has terminated with the following error:\n${error}\n`);
-		exitApplication(1);
+		exitApplication(exit_code);
 	}
 
 	function exitApplication(exit_code=0) {
