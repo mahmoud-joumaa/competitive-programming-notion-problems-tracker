@@ -418,14 +418,11 @@ async function main() {
 					console.log(`\t\t\t[ACCPETED] ${submission.language} solution for ${problem} `);
 					// Get the code submission of the accepted solution
 					const code = await submission.getCode(platform);
-					console.log(code);
 					await this.appendCodeBlock(entry.page_id, submission, code);
 				}
 				else {
 					console.log(`\t\t\t[REJECTED] ${submission.language} solution for ${problem}`);
 				}
-				// visually break the logs apart
-				console.log();
 			}
 			console.log(`\tProcessed Submissions\n`)
 		}
