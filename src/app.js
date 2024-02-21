@@ -354,6 +354,40 @@ async function main() {
 			return await this.notion.pages.update(data);
 		}
 
+		async appendCodeBlock(page_id, submission, code) {
+			const data = {
+				block_id: page_id,
+				children: [
+					{
+						"type": "code",
+						"code": {
+							"language": submission.language.toLowerCase(),
+							"caption": [
+								{
+									"type": "text",
+									"text": {
+										"content": submission.url,
+										"link": {
+											"url": submission.url
+										}
+									}
+								}
+							],
+							"rich_text": [
+								{
+									"type": "text",
+									"text": {
+										"content": code
+									}
+								}
+							]
+						}
+					}
+				]
+			}
+			return await this.notion.blocks.children.append(data);
+		}
+
 		async updateDB(NOTION_DB, platform, submissions) {
 			console.log(`\n\tFetching entries from ${NOTION_DB}...`)
 			const entries = await this.fetchEntries(platform);
@@ -380,13 +414,12 @@ async function main() {
 					// If this problem is getting accepted for the first time with this language, add it to the list of accepted languages
 					if (!entries[problem.id].languages_accepted.includes(submission.language)) {
 						await this.updateAcceptedLanguages(entry.page_id, [...entry.languages_accepted, submission.language]);
-						console.log(`\t\t\t[ACCPETED] ${submission.language} solution for ${problem} `);
 					}
-					continue; // COMBAK:
-					// Get the code submission that got accepted
-					const code = submission.getCode(platform);
+					console.log(`\t\t\t[ACCPETED] ${submission.language} solution for ${problem} `);
+					// Get the code submission of the accepted solution
+					const code = await submission.getCode(platform);
 					console.log(code);
-					exitApplication(3);
+					await this.appendCodeBlock(entry.page_id, submission, code);
 				}
 				else {
 					console.log(`\t\t\t[REJECTED] ${submission.language} solution for ${problem}`);
