@@ -36,6 +36,11 @@ async function main() {
 					const problem_id = id.split('/')[1];
 					problem_url = `https://codeforces.com/${(contest_id>codeforces_id_threshold)?"gym":"contest"}/${contest_id}/problem/${problem_id}`;
 					break;
+				case vjudge_name:
+					const oj = id.split('/')[0];
+					const pb = id.split('/')[1];
+					problem_url = `https://vjudge.net/problem/${oj}-${pb}`;
+					break;
 			}
 			return problem_url;
 		}
@@ -64,6 +69,9 @@ async function main() {
 					const contest_id = problem.id.split('/')[0];
 					submission_url = `https://codeforces.com/${(contest_id>codeforces_id_threshold)?"gym":"contest"}/${contest_id}/submission/${id}`;
 					break;
+				case vjudge_name:
+					const runId = id;
+					submission_url = `https://vjudge.net/solution/${runId}`;
 			}
 			return submission_url;
 		}
@@ -99,6 +107,9 @@ async function main() {
 				case codeforces_name:
 					url = "https://codeforces.com/api";
 					break;
+				case vjudge_name:
+					url = "https://vjudge.net";
+					break;
 			}
 			return url;
 		}
@@ -111,6 +122,9 @@ async function main() {
 					maxUrlLength.problem = 45;
 					maxUrlLength.submission = 56;
 					break;
+				case vjudge_name:
+					maxUrlLength.problem = 50;
+					maxUrlLength.submission = 40;
 			}
 			maxUrlLength.problem += extra; maxUrlLength.submission += extra;
 			return maxUrlLength;
@@ -128,7 +142,9 @@ async function main() {
 
 		static cleanVerdict(verdict) {
 			verdict = verdict.toLowerCase();
-			if (verdict == "ok") return "accepted";
+			const accepted = new Set();
+			accepted.add("ok"); accepted.add("ac");
+			if (accepted.has(verdict)) return "accepted";
 		}
 
 		static cleanLanguage(language) {
@@ -139,17 +155,28 @@ async function main() {
 		async fetchData() {
 			let submissions = [];
 			// fetch all submissions of the current platform then return only the submissions that have not been synced before
+			const now = Math.floor((new Date()).getTime()/1000);
 			switch (this.name) {
 				case codeforces_name:
-					const now = Math.floor((new Date()).getTime()/1000);
 					const randomSig = Platform.generateRandomString(6);
 					const fetchRequestParams = `user.status?apiKey=${process.env.CODEFORCES_KEY}&handle=${process.env.CODEFORCES_ID}&time=${now}`;
 					submissions = await axios.get(`${this.base_url}/${fetchRequestParams}&apiSig=${randomSig}${crypto.createHash('sha512').update(`${randomSig}/${fetchRequestParams}#${process.env.CODEFORCES_SECRET}`).digest('hex')}`);
 					return (submissions.data.result).filter(submission => submission.creationTimeSeconds > this.last_submission_timestamp);
+				case vjudge_name:
+					submissions = [];
+					const maxLength = 20;
+					let i = 0;
+					while (true) {
+						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*maxLength}&length=${maxLength}&un=${process.env.VJUDGE_ID}`);
+						if (currentSubmissions.data.data.length == 0) break;
+						submissions.push(...currentSubmissions.data.data);
+						i++;
+					}
+					return submissions.filter(submission => submission.time > this.last_submission_timestamp);
 			}
 		}
 
-		getProblem(data) {
+		async getProblem(data) {
 			let id; let name; let difficulty; let tags;
 			switch (this.name) {
 				case codeforces_name:
@@ -158,6 +185,12 @@ async function main() {
 					difficulty = `${data.problem.rating}`;
 					tags = []; for (let tag of data.problem.tags) tags.push({ "name": tag });
 					break;
+				case vjudge_name:
+					id = `${data.oj}/${data.probNum}`;
+					name = await axios.get(`${this.base_url}/problem/data?start=0&length=1&OJId=${data.oj}&probNum=${data.probNum}&title=&source=&category=`);
+					name = name.data.data[0].title;
+					difficulty = ``;
+					tags = [];
 			}
 			return new Problem(this, id, name, difficulty, tags);
 		}
@@ -167,17 +200,24 @@ async function main() {
 			let id; let verdict; let url; let timestamp; let language; let problem;
 			for (let i = 0; i < problems.length; i++) {
 				const submission = submissions_data[i];
+				problem = problems[i];
 				switch (this.name) {
 					case codeforces_name:
 						id = submission.id;
 						verdict = submission.verdict;
 						timestamp = submission.creationTimeSeconds;
 						language = submission.programmingLanguage;
-						problem = problems[i];
-						url = Submission.generateUrl(this, problem, id);
 						break;
-				}
-				submissions.push(new Submission(id, url, timestamp, verdict, language, problem));
+					case vjudge_name:
+						id = submission.runId;
+						verdict = submission.status;
+						timestamp = submission.time;
+						language = submission.languageCanonical;
+						break;
+					}
+					url = Submission.generateUrl(this, problem, id);
+
+					submissions.push(new Submission(id, url, timestamp, verdict, language, problem));
 			}
 			return submissions;
 		}
@@ -465,9 +505,9 @@ async function main() {
 
 		// Only add the platforms where the user has an id to the set
 		const platforms = new Set();
-		if (codeforces.user_id) platforms.add(codeforces);
+		// if (codeforces.user_id) platforms.add(codeforces);
 		// if (leetcode.user_id) platforms.add(leetcode);
-		// if (vjudge.user_id) platforms.add(vjudge);
+		if (vjudge.user_id) platforms.add(vjudge);
 
 		// Fetch submission from all supported platforms where the user has an id
 		for (let platform of platforms) {
@@ -476,13 +516,13 @@ async function main() {
 			const submissions_data = await platform.fetchData();
 			let problems = [];
 			for (let data of submissions_data) {
-				const problem = platform.getProblem(data);
+				const problem = await platform.getProblem(data);
 				console.log(`\tFetched from ${(problem.url).padEnd(platform.max_url_length.problem, " ")} ${problem}`);
 				problems.push(problem);
 			}
-			console.log(`Fetched ${platform} submissions\n`)
+			console.log(`Fetched ${platform} submissions\n`);
 			// Cleaning the submissions into a relevant format
-			console.log(`\nFormatting ${platform} submissions...`)
+			console.log(`\nFormatting ${platform} submissions...`);
 			const submissions = platform.cleanSubmissions(submissions_data, problems);
 			for (let submission of submissions) {
 				console.log(`\tFormatted from ${(submission.url).padEnd(platform.max_url_length.submission, " ")} ${submission.problem}`);
