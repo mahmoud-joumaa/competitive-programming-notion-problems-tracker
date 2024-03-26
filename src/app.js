@@ -15,6 +15,7 @@ async function main() {
 	const leetcode_name = "leetcode";
 
 	const vjudge_name = "vjudge";
+	const vjudge_maxResultsLength = 20;
 
 	// Classes ======================================================================================
 
@@ -166,10 +167,9 @@ async function main() {
 					return (submissions.data.result).filter(submission => submission.creationTimeSeconds > this.last_submission_timestamp);
 				case vjudge_name:
 					submissions = [];
-					const maxLength = 20;
 					let i = 0;
 					while (true) {
-						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*maxLength}&length=${maxLength}&un=${process.env.VJUDGE_ID}`);
+						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*vjudge_maxResultsLength}&length=${vjudge_maxResultsLength}&un=${process.env.VJUDGE_ID}`);
 						if (currentSubmissions.data.data.length == 0) break;
 						submissions.push(...currentSubmissions.data.data);
 						i++;
@@ -509,7 +509,7 @@ async function main() {
 		const platforms = new Set();
 		// if (codeforces.user_id) platforms.add(codeforces);
 		// if (leetcode.user_id) platforms.add(leetcode);
-		if (vjudge.user_id) platforms.add(vjudge);
+		// if (vjudge.user_id) platforms.add(vjudge);
 
 		// Fetch submission from all supported platforms where the user has an id
 		for (let platform of platforms) {
