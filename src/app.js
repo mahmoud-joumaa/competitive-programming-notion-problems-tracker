@@ -80,6 +80,8 @@ async function main() {
 			switch (platform.name) {
 				case codeforces_name:
 					return cheerio.load((await axios.get(this.url)).data)("#program-source-text").text();
+				case vjudge_name:
+					return (await axios.get(`https://vjudge.net/solution/data/${this.id}`)).data.codeAccessInfo; // FIXME: Take into account the actual text while logged in
 			}
 		}
 
@@ -143,7 +145,7 @@ async function main() {
 		static cleanVerdict(verdict) {
 			verdict = verdict.toLowerCase();
 			const accepted = new Set();
-			accepted.add("ok"); accepted.add("ac");
+			accepted.add("ok"); accepted.add("accepted");
 			if (accepted.has(verdict)) return "accepted";
 		}
 
@@ -544,6 +546,7 @@ async function main() {
 
 		// Save the updated information in .env
 		console.log("\nSaving the updated information in the .env file...");
+		// TODO: Save data to file
 		console.log("Saved the updated information in the .env file\n");
 
 		// Exit
