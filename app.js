@@ -204,8 +204,17 @@ async function main() {
 						i++;
 					}
 					return submissions.filter(submission => submission.time > this.last_submission_timestamp);
-				case leetcode_name: // COMBAK:
-					return;
+				case leetcode_name:
+					let has_next = true;
+					while (has_next) {
+						let response = await axios.get(`${this.base_url}/api/submissions`, {
+							headers: {
+								"User-Agent": leetcode_ua,
+								COOKIE: `cf_clearance=${process.env.LEETCODE_CF_CLEARANCE};LEETCODE_SESSION=${process.env.LEETCODE_SESSION}`
+							}
+						});
+						console.log(response); exitApplication(7); // TEMP:
+					}
 			}
 		}
 
@@ -318,8 +327,6 @@ async function main() {
 
 		confirmCredentials(NOTION_USER, NOTION_DB) {
 			const duration = 0;
-			if (NOTION_USER)
-				console.log(`Connected to workspace:\t${NOTION_USER}`);
 			console.log(`Connected to database: \t${NOTION_DB}`);
 			console.log(`\nTerminate the application within ${duration} seconds if the above credentials are incorrect...\n`);
 			return new Promise((resolve) => {setTimeout(() => {resolve("====================\nSyncing Has Started\n====================")}, duration*1000)});
@@ -552,6 +559,7 @@ async function main() {
 			// Get the submissions per platform
 			console.log(`\nFetching ${platform} submissions...`);
 			const submissions_data = await platform.fetchData();
+			console.log(submissions_data); // TEMP:
 			let problems = [];
 			for (let data of submissions_data) {
 				const problem = await platform.getProblem(data);
