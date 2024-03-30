@@ -13,9 +13,10 @@ async function main() {
 	const codeforces_id_threshold = 100000; // any id greater than this is placed in the gym
 
 	const leetcode_name = "leetcode";
+	const leetcode_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"; // user agent (needed to bypass error 403)
 
 	const vjudge_name = "vjudge";
-	const vjudge_maxResultsLength = 20;
+	const vjudge_maxResultsLength = 20; // the max that can be retrieved per request
 
 	// Classes ======================================================================================
 
@@ -41,6 +42,8 @@ async function main() {
 					const oj = id.split('/')[0];
 					const pb = id.split('/')[1];
 					problem_url = `https://vjudge.net/problem/${oj}-${pb}`;
+					break;
+				case leetcode_name: // COMBAK:
 					break;
 			}
 			return problem_url;
@@ -73,6 +76,9 @@ async function main() {
 				case vjudge_name:
 					const runId = id;
 					submission_url = `https://vjudge.net/solution/${runId}`;
+					break;
+				case leetcode_name: // COMBAK:
+					break;
 			}
 			return submission_url;
 		}
@@ -83,6 +89,8 @@ async function main() {
 					return cheerio.load((await axios.get(this.url)).data)("#program-source-text").text();
 				case vjudge_name:
 					return (await axios.get(`https://vjudge.net/solution/data/${this.id}`)).data.codeAccessInfo; // FIXME: Take into account the actual text while logged in
+					case leetcode_name: // COMBAK:
+						return;
 			}
 		}
 
@@ -113,6 +121,8 @@ async function main() {
 				case vjudge_name:
 					url = "https://vjudge.net";
 					break;
+				case leetcode_name: // COMBAK:
+					break;
 			}
 			return url;
 		}
@@ -128,6 +138,8 @@ async function main() {
 				case vjudge_name:
 					maxUrlLength.problem = 50;
 					maxUrlLength.submission = 40;
+					break;
+				case leetcode_name: // COMBAK:
 					break;
 			}
 			maxUrlLength.problem += extra; maxUrlLength.submission += extra;
@@ -192,6 +204,8 @@ async function main() {
 						i++;
 					}
 					return submissions.filter(submission => submission.time > this.last_submission_timestamp);
+				case leetcode_name: // COMBAK:
+					return;
 			}
 		}
 
@@ -210,6 +224,9 @@ async function main() {
 					name = name.data.data[0].title;
 					difficulty = ``;
 					tags = [];
+					break;
+				case leetcode_name: // COMBAK:
+					break;
 			}
 			return new Problem(this, id, name, difficulty, tags);
 		}
@@ -233,10 +250,12 @@ async function main() {
 						timestamp = submission.time;
 						language = submission.languageCanonical;
 						break;
-					}
-					url = Submission.generateUrl(this, problem, id);
+					case leetcode_name: // COMBAK:
+						break;
+				}
+				url = Submission.generateUrl(this, problem, id);
 
-					submissions.push(new Submission(id, url, timestamp, verdict, language, problem));
+				submissions.push(new Submission(id, url, timestamp, verdict, language, problem));
 			}
 			return submissions;
 		}
@@ -525,7 +544,7 @@ async function main() {
 		// Only add the platforms where the user has an id to the set
 		const platforms = new Set();
 		// if (codeforces.user_id) platforms.add(codeforces);
-		// if (leetcode.user_id) platforms.add(leetcode);
+		if (leetcode.user_id) platforms.add(leetcode);
 		// if (vjudge.user_id) platforms.add(vjudge);
 
 		// Fetch submission from all supported platforms where the user has an id
