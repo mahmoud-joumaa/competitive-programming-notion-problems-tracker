@@ -512,7 +512,6 @@ async function main() {
 		// Initialize Notion
 		console.log("\nDetecting Notion environment...")
 		const notion = new Notion(process.env.NOTION_INTEGRATION_KEY, process.env.NOTION_DATABASE_ID);
-		const NOTION_USER = (Number(process.env.DETECT_NOTION_USER) === 1) ? await notion.getUser() : null;
 		const NOTION_DB = await notion.getDB();
 		console.log("Detected Notion environment\n")
 
