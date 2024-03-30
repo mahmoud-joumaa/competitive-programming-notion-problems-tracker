@@ -128,6 +128,7 @@ async function main() {
 				case vjudge_name:
 					maxUrlLength.problem = 50;
 					maxUrlLength.submission = 40;
+					break;
 			}
 			maxUrlLength.problem += extra; maxUrlLength.submission += extra;
 			return maxUrlLength;
@@ -152,7 +153,23 @@ async function main() {
 
 		static cleanLanguage(language) {
 			language = language.toLowerCase();
+
+			if (language.includes("pypy")) return "PyPy";
+			if (language.includes("python")) return "Python";
+
+			if (language.includes("typescript")) return "TypeScript";
+			if (language.includes("javascript")) return "JavaScript";
+			if (language.includes("java")) return "Java";
+
+			if (language.includes("pascal")) return "Pascal";
+			if (language.includes("ruby")) return "Ruby";
+			if (language.includes("rust")) return "Rust";
+			if (language.includes("go")) return "Go";
+			if (language.includes("php")) return "PHP";
+
 			if (language.includes("c++") || language.includes("cpp")) return "C++";
+			if (language.includes("c#")) return "C#";
+			if (language.includes("c")) return "C";
 		}
 
 		async fetchData() {
@@ -488,6 +505,7 @@ async function main() {
 	// ==============================================================================================
 
 	try {
+
 		// Welcoming the user
 		console.log("\n\n====================================================================================================\nWelcome to the Competitve Programming Problems Tracker in Notion\n====================================================================================================\n");
 
@@ -553,6 +571,7 @@ async function main() {
 		console.log("\nExiting the application...");
 		exitApplication();
 	}
+
 	catch(error) {
 		handleError(error);
 	}
