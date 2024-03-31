@@ -13,18 +13,10 @@ async function main() {
 	const codeforces_id_threshold = 100000; // any id greater than this is placed in the gym
 
 	const leetcode_name = "leetcode";
-	const leetcode_ua = "localhost"; // user agent (needed to bypass error 403)
-	const leetcode_headers = {
-		Host: "leetcode.com",
-		Accept: "*/*",
-		"content-type": "application/json",
-		"Origin": this.base_url,
-		"User-Agent": leetcode_ua,
-		Cookie: `LEETCODE_SESSION=${process.env.LEETCODE_SESSION}`,
-	};
+	const leetcode_limit = 20; // limit the number of retrieved objects per request
 
 	const vjudge_name = "vjudge";
-	const vjudge_maxResultsLength = 20; // the max that can be retrieved per request
+	const vjudge_max_results_length = 20; // the max that can be retrieved per request
 
 	// Classes ======================================================================================
 
@@ -51,7 +43,8 @@ async function main() {
 					const pb = id.split('/')[1];
 					problem_url = `https://vjudge.net/problem/${oj}-${pb}`;
 					break;
-				case leetcode_name: // COMBAK:
+				case leetcode_name:
+					problem_url = `https://leetcode.com/problems/${id.split('/')[1]}`;
 					break;
 			}
 			return problem_url;
@@ -65,13 +58,14 @@ async function main() {
 
 	class Submission {
 
-		constructor(id, url, timestamp, verdict, language, problem) {
+		constructor(id, url, timestamp, verdict, language, problem, code=null) {
 			this.id = id;
 			this.url = url;
 			this.timestamp = timestamp;
 			this.verdict = Platform.cleanVerdict(verdict);
 			this.language = Platform.cleanLanguage(language);
 			this.problem = problem;
+			this.code = code;
 		}
 
 		static generateUrl(platform, problem, id) {
@@ -85,7 +79,8 @@ async function main() {
 					const runId = id;
 					submission_url = `https://vjudge.net/solution/${runId}`;
 					break;
-				case leetcode_name: // COMBAK:
+				case leetcode_name:
+					submission_url = `https://leetcode.com/submissions/detail/${id}`;
 					break;
 			}
 			return submission_url;
@@ -97,8 +92,8 @@ async function main() {
 					return cheerio.load((await axios.get(this.url)).data)("#program-source-text").text();
 				case vjudge_name:
 					return (await axios.get(`https://vjudge.net/solution/data/${this.id}`)).data.codeAccessInfo; // FIXME: Take into account the actual text while logged in
-					case leetcode_name: // COMBAK:
-						return;
+					case leetcode_name:
+						return this.code;
 			}
 		}
 
@@ -148,11 +143,40 @@ async function main() {
 					maxUrlLength.problem = 50;
 					maxUrlLength.submission = 40;
 					break;
-				case leetcode_name: // COMBAK:
+				case leetcode_name:
+					maxUrlLength.problem = 100;
+					maxUrlLength.submission = 50;
 					break;
 			}
 			maxUrlLength.problem += extra; maxUrlLength.submission += extra;
 			return maxUrlLength;
+		}
+
+		static generateLeetcodeHeaders(csrf_token) {
+			const base_url = Platform.generateBaseUrl(leetcode_name);
+			return {
+				"content-type": "application/json",
+				origin: base_url,
+				refer: base_url,
+				cookie: `LEETCODE_SESSION=${process.env.LEETCODE_SESSION || ''}; csrftoken=${csrf_token || ''}`,
+				"x-csrfotken": csrf_token || '',
+				"user-agent": "localhost",
+			};
+		}
+
+		static async getCSRF(platform_name) {
+			const baseUrl = Platform.generateBaseUrl(platform_name)
+			const cookies_raw = await axios.get(baseUrl, {headers: {
+				"content-type": "application/json",
+				origin: baseUrl,
+				refer: baseUrl,
+				"user-agent": "localhost"}
+			});
+			return Platform.parseCookie(cookies_raw);
+		}
+		static parseCookie(cookies_raw, name="csrftoken") {
+			const cookies = cookies_raw.headers["set-cookie"][0].split(';').map(cookie => cookie.split('='));
+			return cookies.find(cookie => cookie[0].toLowerCase()===name)[1];
 		}
 
 		static generateRandomString(n) {
@@ -205,57 +229,50 @@ async function main() {
 					submissions = [];
 					let i = 0;
 					while (true) {
-						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*vjudge_maxResultsLength}&length=${vjudge_maxResultsLength}&un=${process.env.VJUDGE_ID}`);
+						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*vjudge_max_results_length}&length=${vjudge_max_results_length}&un=${process.env.VJUDGE_ID}`);
 						if (currentSubmissions.data.data.length == 0) break;
 						submissions.push(...currentSubmissions.data.data);
 						i++;
 					}
 					return submissions.filter(submission => submission.time > this.last_submission_timestamp);
 				case leetcode_name:
+					let leetcode_headers = Platform.generateLeetcodeHeaders(await Platform.getCSRF(leetcode_name));
 					let has_next = true;
 					let offset = 0;
 					while (has_next) {
-						let cookie_csrftoken = (await axios.get(this.base_url, {headers: leetcode_headers})).headers["set-cookie"][0]
-						cookie_csrftoken = cookie_csrftoken.substring(cookie_csrftoken.indexOf('=', cookie_csrftoken.indexOf("csrftoken"))+1, cookie_csrftoken.indexOf(';', cookie_csrftoken.indexOf("csrftoken")));
-						let response = await axios.get(`${this.base_url}/api/submissions/?offset=${offset}`, {
-							headers: { // leetcode_headers + csrftoken cookie
-								Host: "leetcode.com",
-								Accept: "*/*",
-								"content-type": "application/json",
-								"Origin": this.base_url,
-								"User-Agent": leetcode_ua,
-								Cookie: `LEETCODE_SESSION=${process.env.LEETCODE_SESSION}; csrftoken=${cookie_csrftoken}`,
-							}
+						const response = await axios(`${this.base_url}/api/submissions?offset=${offset}&limit=${leetcode_limit}`, {
+							headers: leetcode_headers
 						});
 						submissions.push(...response.data.submissions_dump);
 						has_next = response.data.has_next;
-						offset = submissions.length;
+						offset += leetcode_limit;
+						leetcode_headers = Platform.generateLeetcodeHeaders(Platform.parseCookie(response));
 					}
 					return submissions.filter(submission => submission.timestamp > this.last_submission_timestamp);
 			}
 		}
 
 		async getProblem(data) {
-			let id; let name; let difficulty; let tags;
+			let id; let name; let difficulty = ""; let tags = [];
 			switch (this.name) {
 				case codeforces_name:
 					id = `${data.problem.contestId}/${data.problem.index}`;
 					name = `${data.problem.name}`;
 					difficulty = `${data.problem.rating}`;
-					tags = []; for (let tag of data.problem.tags) tags.push({ "name": tag });
+					for (let tag of data.problem.tags) tags.push({ "name": tag });
 					break;
 				case vjudge_name:
 					id = `${data.oj}/${data.probNum}`;
 					name = await axios.get(`${this.base_url}/problem/data?start=0&length=1&OJId=${data.oj}&probNum=${data.probNum}&title=&source=&category=`);
 					name = name.data.data[0].title;
-					difficulty = ``;
-					tags = [];
 					break;
 				case leetcode_name:
-					id = data.question_id;
+					id = `${data.question_id}/${data.title_slug}`;
 					name = data.title;
-					difficulty = await axios.get(`${this.base_url}/problems/${data.title_slug}`, {headers: leetcode_headers});
-					console.log(difficulty); exitApplication(10); // TEMP:
+					difficulty = (await axios.get(`${this.base_url}/api/problems/all`, {
+						headers: Platform.generateLeetcodeHeaders(Platform.getCSRF(leetcode_name))
+					})).data.stat_status_pairs.find(question => question.stat.question_id===data.question_id).difficulty.level;
+					difficulty = difficulty==1?"Easy":difficulty==2?"Medium":difficulty==3?"Hard":"";
 					break;
 			}
 			return new Problem(this, id, name, difficulty, tags);
@@ -263,7 +280,7 @@ async function main() {
 
 		cleanSubmissions(submissions_data, problems) {
 			let submissions = [];
-			let id; let verdict; let url; let timestamp; let language; let problem;
+			let id; let verdict; let url; let timestamp; let language; let problem; let code = null;
 			for (let i = 0; i < problems.length; i++) {
 				const submission = submissions_data[i];
 				problem = problems[i];
@@ -280,12 +297,17 @@ async function main() {
 						timestamp = submission.time;
 						language = submission.languageCanonical;
 						break;
-					case leetcode_name: // COMBAK:
+					case leetcode_name:
+						id = submission.id;
+						verdict = submission.status_display;
+						timestamp = submission.timestamp;
+						language = submission.lang;
+						code = submission.code;
 						break;
 				}
 				url = Submission.generateUrl(this, problem, id);
 
-				submissions.push(new Submission(id, url, timestamp, verdict, language, problem));
+				submissions.push(new Submission(id, url, timestamp, verdict, language, problem, code));
 			}
 			return submissions;
 		}
@@ -580,7 +602,6 @@ async function main() {
 			// Get the submissions per platform
 			console.log(`\nFetching ${platform} submissions...`);
 			const submissions_data = await platform.fetchData();
-			console.log("SUCCESS"); // TEMP:
 			let problems = [];
 			for (let data of submissions_data) {
 				const problem = await platform.getProblem(data);
