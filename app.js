@@ -13,7 +13,15 @@ async function main() {
 	const codeforces_id_threshold = 100000; // any id greater than this is placed in the gym
 
 	const leetcode_name = "leetcode";
-	const leetcode_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"; // user agent (needed to bypass error 403)
+	const leetcode_ua = "localhost"; // user agent (needed to bypass error 403)
+	const leetcode_headers = {
+		Host: "leetcode.com",
+		Accept: "*/*",
+		"content-type": "application/json",
+		"Origin": this.base_url,
+		"User-Agent": leetcode_ua,
+		Cookie: `LEETCODE_SESSION=${process.env.LEETCODE_SESSION}`,
+	};
 
 	const vjudge_name = "vjudge";
 	const vjudge_maxResultsLength = 20; // the max that can be retrieved per request
@@ -121,7 +129,8 @@ async function main() {
 				case vjudge_name:
 					url = "https://vjudge.net";
 					break;
-				case leetcode_name: // COMBAK:
+				case leetcode_name:
+					url = "https://leetcode.com";
 					break;
 			}
 			return url;
@@ -158,9 +167,7 @@ async function main() {
 
 		static cleanVerdict(verdict) {
 			verdict = verdict.toLowerCase();
-			const accepted = new Set();
-			accepted.add("ok"); accepted.add("accepted");
-			if (accepted.has(verdict)) return "accepted";
+			if (verdict === "ok" || verdict === "accepted") return "accepted";
 		}
 
 		static cleanLanguage(language) {
@@ -206,15 +213,25 @@ async function main() {
 					return submissions.filter(submission => submission.time > this.last_submission_timestamp);
 				case leetcode_name:
 					let has_next = true;
+					let offset = 0;
 					while (has_next) {
-						let response = await axios.get(`${this.base_url}/api/submissions`, {
-							headers: {
+						let cookie_csrftoken = (await axios.get(this.base_url, {headers: leetcode_headers})).headers["set-cookie"][0]
+						cookie_csrftoken = cookie_csrftoken.substring(cookie_csrftoken.indexOf('=', cookie_csrftoken.indexOf("csrftoken"))+1, cookie_csrftoken.indexOf(';', cookie_csrftoken.indexOf("csrftoken")));
+						let response = await axios.get(`${this.base_url}/api/submissions/?offset=${offset}`, {
+							headers: { // leetcode_headers + csrftoken cookie
+								Host: "leetcode.com",
+								Accept: "*/*",
+								"content-type": "application/json",
+								"Origin": this.base_url,
 								"User-Agent": leetcode_ua,
-								COOKIE: `cf_clearance=${process.env.LEETCODE_CF_CLEARANCE};LEETCODE_SESSION=${process.env.LEETCODE_SESSION}`
+								Cookie: `LEETCODE_SESSION=${process.env.LEETCODE_SESSION}; csrftoken=${cookie_csrftoken}`,
 							}
 						});
-						console.log(response); exitApplication(7); // TEMP:
+						submissions.push(...response.data.submissions_dump);
+						has_next = response.data.has_next;
+						offset = submissions.length;
 					}
+					return submissions.filter(submission => submission.timestamp > this.last_submission_timestamp);
 			}
 		}
 
@@ -234,7 +251,11 @@ async function main() {
 					difficulty = ``;
 					tags = [];
 					break;
-				case leetcode_name: // COMBAK:
+				case leetcode_name:
+					id = data.question_id;
+					name = data.title;
+					difficulty = await axios.get(`${this.base_url}/problems/${data.title_slug}`, {headers: leetcode_headers});
+					console.log(difficulty); exitApplication(10); // TEMP:
 					break;
 			}
 			return new Problem(this, id, name, difficulty, tags);
@@ -325,7 +346,7 @@ async function main() {
 			return (await this.notion.databases.retrieve({ database_id: this.NOTION_DATABASE_ID })).title[0].plain_text;
 		}
 
-		confirmCredentials(NOTION_USER, NOTION_DB) {
+		confirmCredentials(NOTION_DB) {
 			const duration = 0;
 			console.log(`Connected to database: \t${NOTION_DB}`);
 			console.log(`\nTerminate the application within ${duration} seconds if the above credentials are incorrect...\n`);
@@ -541,7 +562,7 @@ async function main() {
 		const NOTION_DB = await notion.getDB();
 		console.log("Detected Notion environment\n")
 
-		console.log(`\n${await notion.confirmCredentials(NOTION_USER, NOTION_DB)}\n`);
+		console.log(`\n${await notion.confirmCredentials(NOTION_DB)}\n`);
 
 		// Initialize all supported platforms
 		const codeforces = new Platform(codeforces_name, process.env.CODEFORCES_ID, Number(process.env.CODEFORCES_LAST_SUBMISSION_TIMESTAMP), process.env.CODEFORCES_KEY, process.env.CODEFORCES_SECRET);
@@ -559,7 +580,7 @@ async function main() {
 			// Get the submissions per platform
 			console.log(`\nFetching ${platform} submissions...`);
 			const submissions_data = await platform.fetchData();
-			console.log(submissions_data); // TEMP:
+			console.log("SUCCESS"); // TEMP:
 			let problems = [];
 			for (let data of submissions_data) {
 				const problem = await platform.getProblem(data);
