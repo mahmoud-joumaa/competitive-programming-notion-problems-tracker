@@ -4,7 +4,8 @@ async function main() {
 
 	const axios = require('axios');
 	const cheerio = require('cheerio');
-	const crypto = require("crypto")
+	const crypto = require("crypto");
+	const fs = require('fs');
 
 	const { Client } = require('@notionhq/client');
 
@@ -670,8 +671,26 @@ async function main() {
 
 		// Save the updated information in .env
 		console.log("\nSaving the updated information in the .env file...");
-		// TODO: Save data to file
-		console.log("Saved the updated information in the .env file\n");
+		let data= `
+			NOTION_INTEGRATION_KEY = ${process.env.NOTION_INTEGRATION_KEY}
+			NOTION_DATABASE_ID = ${process.env.NOTION_DATABASE_ID}
+
+			CODEFORCES_ID = ${process.env.CODEFORCES_ID}
+			CODEFORCES_KEY = ${process.env.CODEFORCES_KEY}
+			CODEFORCES_SECRET = ${process.env.CODEFORCES_SECRET}
+			CODEFORCES_LAST_SUBMISSION_TIMESTAMP = ${codeforces.last_submission_timestamp}
+
+			LEETCODE_ID = ${process.env.LEETCODE_ID}
+			LEETCODE_SESSION =
+			LEETCODE_LAST_SUBMISSION_TIMESTAMP = ${leetcode.last_submission_timestamp}
+
+			VJUDGE_ID = ${process.env.VJUDGE_ID}
+			VJUDGE_LAST_SUBMISSION_TIMESTAMP = ${vjudge.last_submission_timestamp}
+		`;
+		fs.writeFile(".env", data, (err) => {
+			if (err) exitApplication(2);
+			else console.log("Saved the updated information in the .env file\n");
+		});
 
 		// Exit
 		console.log("\nExiting the application...");
