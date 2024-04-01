@@ -86,8 +86,8 @@ async function main() {
 
 	// NOTE: Avoid error with status code 429 by calling `await sleep(sleep_duration.platform_name)`
 	const sleep_duration = {
-		notion: 500,
-		codeforces_name: 2500,
+		notion: 350,
+		codeforces_name: 2000,
 		leetcode_name: 1500,
 		vjudge_name: 1500,
 	};
