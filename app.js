@@ -79,14 +79,14 @@ async function main() {
 				note
 			}
 		}
-	`;
+	`; // TODO: Clean query
 
 	const vjudge_name = "vjudge";
 	const vjudge_max_results_length = 20; // the max that can be retrieved per request
 
 	// NOTE: Avoid error with status code 429 by calling `await sleep(sleep_duration.platform_name)`
 	const sleep_duration = {
-		notion: 350,
+		notion: 400,
 		codeforces_name: 2000,
 		leetcode_name: 1500,
 		vjudge_name: 1500,
