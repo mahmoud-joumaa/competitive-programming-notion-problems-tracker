@@ -671,26 +671,9 @@ async function main() {
 
 		// Save the updated information in .env
 		console.log("\nSaving the updated information in the .env file...");
-		let data= `
-			NOTION_INTEGRATION_KEY = ${process.env.NOTION_INTEGRATION_KEY}
-			NOTION_DATABASE_ID = ${process.env.NOTION_DATABASE_ID}
-
-			CODEFORCES_ID = ${process.env.CODEFORCES_ID}
-			CODEFORCES_KEY = ${process.env.CODEFORCES_KEY}
-			CODEFORCES_SECRET = ${process.env.CODEFORCES_SECRET}
-			CODEFORCES_LAST_SUBMISSION_TIMESTAMP = ${codeforces.last_submission_timestamp}
-
-			LEETCODE_ID = ${process.env.LEETCODE_ID}
-			LEETCODE_SESSION =
-			LEETCODE_LAST_SUBMISSION_TIMESTAMP = ${leetcode.last_submission_timestamp}
-
-			VJUDGE_ID = ${process.env.VJUDGE_ID}
-			VJUDGE_LAST_SUBMISSION_TIMESTAMP = ${vjudge.last_submission_timestamp}
-		`;
-		fs.writeFile(".env", data, (err) => {
-			if (err) exitApplication(2);
-			else console.log("Saved the updated information in the .env file\n");
-		});
+		let data= `NOTION_INTEGRATION_KEY = ${process.env.NOTION_INTEGRATION_KEY}\nNOTION_DATABASE_ID = ${process.env.NOTION_DATABASE_ID}\n\nCODEFORCES_ID = ${process.env.CODEFORCES_ID}\nCODEFORCES_KEY = ${process.env.CODEFORCES_KEY}\nCODEFORCES_SECRET = ${process.env.CODEFORCES_SECRET}\nCODEFORCES_LAST_SUBMISSION_TIMESTAMP = ${codeforces.last_submission_timestamp}\n\nLEETCODE_ID = ${process.env.LEETCODE_ID}\nLEETCODE_SESSION = \nLEETCODE_LAST_SUBMISSION_TIMESTAMP = ${leetcode.last_submission_timestamp}\n\nVJUDGE_ID = ${process.env.VJUDGE_ID}\nVJUDGE_LAST_SUBMISSION_TIMESTAMP = ${vjudge.last_submission_timestamp}`;
+		fs.writeFileSync(".env", data);
+		console.log("Saved the updated information in the .env file\n");
 
 		// Exit
 		console.log("\nExiting the application...");
