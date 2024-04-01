@@ -8,6 +8,8 @@ async function main() {
 
 	const { Client } = require('@notionhq/client');
 
+	const sleep_duration = 500;
+
 	// platform-specific properties
 	const codeforces_name = "codeforces";
 	const codeforces_id_threshold = 100000; // any id greater than this is placed in the gym
@@ -594,7 +596,7 @@ async function main() {
 				const problem = submission.problem;
 				// Check if this problem has not already been attempted before, add an entry for it
 				if (!entries[problem.id]) {
-					await sleep(1000); // NOTE: Avoid error with status code 429
+					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					entries[problem.id] = Entry.cleanEntry(await this.createPage(platform, problem));
 					console.log(`\t\tCreated ${problem}`);
 				}
@@ -604,7 +606,7 @@ async function main() {
 				const entry = entries[problem.id];
 				// Check if this problem was attempted before in this language
 				if (!entry.languages_attempted.includes(submission.language)) {
-					await sleep(1000); // NOTE: Avoid error with status code 429
+					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					await this.updateAttemptedLanguages(entry.page_id, [...entry.languages_attempted, submission.language]);
 				}
 				console.log(`\t\t\t[PENDING] ${submission.language} solution for ${problem}`);
@@ -612,14 +614,13 @@ async function main() {
 				if (submission.verdict == "accepted") {
 					// If this problem is getting accepted for the first time with this language, add it to the list of accepted languages
 					if (!entries[problem.id].languages_accepted.includes(submission.language)) {
-						await sleep(1000); // NOTE: Avoid error with status code 429
 						await this.updateAcceptedLanguages(entry.page_id, [...entry.languages_accepted, submission.language]);
 					}
 					console.log(`\t\t\t[ACCPETED] ${submission.language} solution for ${problem} `);
 					// Get the code submission of the accepted solution
-					await sleep(1000); // NOTE: Avoid error with status code 429
+					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					const code = await submission.getCode(platform);
-					await sleep(1000); // NOTE: Avoid error with status code 429
+					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					await this.appendCodeBlock(entry.page_id, submission, code);
 				}
 				else {
@@ -682,7 +683,7 @@ async function main() {
 			const submissions_data = await platform.fetchData();
 			let problems = [];
 			for (let data of submissions_data) {
-				await sleep(1000); // NOTE: Avoid error with status code 429
+				await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 				const problem = await platform.getProblem(data);
 				console.log(`\tFetched from ${(problem.url).padEnd(platform.max_url_length.problem, " ")} ${problem}`);
 				problems.push(problem);
@@ -697,7 +698,7 @@ async function main() {
 			console.log(`Formatted ${platform} submissions\n`)
 			// Update the Notion database accordingly
 			console.log(`\nUpdating ${platform} submissions in ${NOTION_DB}...`);
-			await sleep(1000); // NOTE: Avoid error with status code 429
+			await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 			await notion.updateDB(NOTION_DB, platform, submissions);
 			console.log(`Updated ${platform} submissions in ${NOTION_DB}\n`);
 			// Save the new .env information for each platform
