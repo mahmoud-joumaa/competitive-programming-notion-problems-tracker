@@ -24,9 +24,9 @@ Once the data is properly structured, the application uses Notion's API to updat
 
 Obviously, a Notion workspace is needed to sync to the corresponding database. If you do not already have a Notion account, check their official website at [https://www.notion.so/](https://www.notion.so/).
 
-Once you've secured a workspace, you'll need a Notion database to sync to. The application expects certain properties with specific names and types, so feel free to duplicate the database template found at []().
-<!-- TODO: Add link -->
-**NOTE:** You CAN add properties to the duplicated database as you wish, but make sure not to alter any of the existing properties.
+Once you've secured a workspace, you'll need a Notion database to sync to. The application expects certain properties with specific names and types, so feel free to duplicate this [database template](https://mahmoudj.notion.site/d3587ff389454bc6bccd62ee14ce0b1b?v=fc76100ca0db4772b14c3c640dd9a436&pvs=4).
+
+**NOTE:** You CAN add properties to the duplicated database as you wish, but make sure not to alter any of the existing properties. Of course, feel free to edit the title, icon, and cover image as you please!
 
 ### Node.js
 
@@ -116,6 +116,19 @@ After you've updated the `.env` file with your identifiers as described in the p
 - [ ] [CSES](https://cses.fi/)
 
 ## Known Issues
+
+- Error handling is rather basic. This _is_ a simple application, after all. For the time being, a simple fix would be to clear the database and reset the `.env` timestamps back to `0`. This ensures a clean sync into an empty database.
+
+- All languages supported by a platform are supported when syncing, but the formatting is still undergoing some testing.
+
+### Codeforces
+
+- Fetches private gym submissions' URL but does not sync their codes.
+- Private submissions have an "undefined" difficulty
+
+### Vjudge
+
+- Fetches the submissions' URL but does not sync their codes (Needs authentication).
 
 # References & Documentation
 
