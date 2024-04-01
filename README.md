@@ -117,7 +117,10 @@ After you've updated the `.env` file with your identifiers as described in the p
 
 ## Known Issues
 
-- Error handling is rather basic. This _is_ a simple application, after all. For the time being, a simple fix would be to clear the database and reset the `.env` timestamps back to `0`. This ensures a clean sync into an empty database.
+- Error handling is rather basic. This _is_ a simple application, after all.
+	- If one of the websites is down, the application _will_ crash. A workaround for this would be to avoid syncing to that platform while its servers are down.
+
+For the time being, a simple fix would be to clear the database and reset the `.env` timestamps back to `0`. This ensures a clean sync into an empty database.
 
 - All languages supported by a platform are supported when syncing, but the formatting is still undergoing some testing.
 
