@@ -8,8 +8,6 @@ async function main() {
 
 	const { Client } = require('@notionhq/client');
 
-	const sleep_duration = 500; // NOTE: Avoid error with status code 429 by calling `await sleep(sleep_duration)`
-
 	// platform-specific properties
 	const codeforces_name = "codeforces";
 	const codeforces_id_threshold = 100000; // any id greater than this is placed in the gym
@@ -17,74 +15,82 @@ async function main() {
 	const leetcode_name = "leetcode";
 	const leetcode_limit = 20; // limit the number of retrieved objects per request
 	const leetcode_query_get_problem = `
-	query ($titleSlug: String!) {
-		question(titleSlug: $titleSlug) {
-			questionId
-			questionFrontendId
-			boundTopicId
-			title
-			titleSlug
-			content
-			translatedTitle
-			translatedContent
-			isPaidOnly
-			difficulty
-			likes
-			dislikes
-			isLiked
-			similarQuestions
-			exampleTestcases
-			contributors {
-				username
-				profileUrl
-				avatarUrl
+		query ($titleSlug: String!) {
+			question(titleSlug: $titleSlug) {
+				questionId
+				questionFrontendId
+				boundTopicId
+				title
+				titleSlug
+				content
+				translatedTitle
+				translatedContent
+				isPaidOnly
+				difficulty
+				likes
+				dislikes
+				isLiked
+				similarQuestions
+				exampleTestcases
+				contributors {
+					username
+					profileUrl
+					avatarUrl
+				}
+				topicTags {
+					name
+					slug
+					translatedName
+				}
+				companyTagStats
+				codeSnippets {
+					lang
+					langSlug
+					code
+				}
+				stats
+				hints
+				solution {
+					id
+					canSeeDetail
+					paidOnly
+					hasVideoSolution
+					paidOnlyVideo
+				}
+				status
+				sampleTestCase
+				metaData
+				judgerAvailable
+				judgeType
+				mysqlSchemas
+				enableRunCode
+				enableTestMode
+				enableDebugger
+				envInfo
+				libraryUrl
+				adminUrl
+				challengeQuestion {
+					id
+					date
+					incompleteChallengeCount
+					streakCount
+					type
+				}
+				note
 			}
-			topicTags {
-				name
-				slug
-				translatedName
-			}
-			companyTagStats
-			codeSnippets {
-				lang
-				langSlug
-				code
-			}
-			stats
-			hints
-			solution {
-				id
-				canSeeDetail
-				paidOnly
-				hasVideoSolution
-				paidOnlyVideo
-			}
-			status
-			sampleTestCase
-			metaData
-			judgerAvailable
-			judgeType
-			mysqlSchemas
-			enableRunCode
-			enableTestMode
-			enableDebugger
-			envInfo
-			libraryUrl
-			adminUrl
-			challengeQuestion {
-				id
-				date
-				incompleteChallengeCount
-				streakCount
-				type
-			}
-			note
 		}
-	}
-`;
+	`;
 
 	const vjudge_name = "vjudge";
 	const vjudge_max_results_length = 20; // the max that can be retrieved per request
+
+	// NOTE: Avoid error with status code 429 by calling `await sleep(sleep_duration.platform_name)`
+	const sleep_duration = {
+		notion: 350,
+		codeforces_name: 2000,
+		leetcode_name: 1500,
+		vjudge_name: 1500,
+	};
 
 	// Classes ======================================================================================
 
@@ -157,10 +163,10 @@ async function main() {
 		async getCode(platform) {
 			switch (platform.name) {
 				case codeforces_name:
-					await sleep(sleep_duration+1000);
+					await sleep(sleep_duration.codeforces_name);
 					return cheerio.load((await axios.get(this.url)).data)("#program-source-text").text();
 				case vjudge_name:
-					await sleep(sleep_duration);
+					await sleep(sleep_duration.vjudge_name);
 					return (await axios.get(`https://vjudge.net/solution/data/${this.id}`)).data.codeAccessInfo; // FIXME: Take into account the actual text while logged in
 					case leetcode_name:
 						return this.code;
@@ -301,7 +307,7 @@ async function main() {
 					submissions = [];
 					let i = 0;
 					while (true) {
-						await sleep(sleep_duration);
+						await sleep(sleep_duration.vjudge_name);
 						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*vjudge_max_results_length}&length=${vjudge_max_results_length}&un=${process.env.VJUDGE_ID}`);
 						if (currentSubmissions.data.data.length == 0) break;
 						submissions.push(...currentSubmissions.data.data);
@@ -313,7 +319,7 @@ async function main() {
 					let has_next = true;
 					let offset = 0;
 					while (has_next) {
-						await sleep(sleep_duration);
+						await sleep(sleep_duration.leetcode_name);
 						const response = await axios(`${this.base_url}/api/submissions?offset=${offset}&limit=${leetcode_limit}`, {
 							headers: leetcode_headers
 						});
@@ -337,14 +343,14 @@ async function main() {
 					break;
 				case vjudge_name:
 					id = `${data.oj}/${data.probNum}`;
-					await sleep(sleep_duration);
+					await sleep(sleep_duration.vjudge_name);
 					name = await axios.get(`${this.base_url}/problem/data?start=0&length=1&OJId=${data.oj}&probNum=${data.probNum}&title=&source=&category=`);
 					name = name.data.data[0].title;
 					break;
 				case leetcode_name:
 					id = `${data.question_id}/${data.title_slug}`;
 					name = data.title;
-					await sleep(sleep_duration);
+					await sleep(sleep_duration.leetcode_name);
 					const problem_info = await axios.post(`${this.base_url}/graphql`, {
 						headers: Platform.generateLeetcodeHeaders(Platform.getCSRF(leetcode_name)),
 						query: leetcode_query_get_problem,
@@ -503,7 +509,7 @@ async function main() {
 					}
 				}
 			};
-			await sleep(sleep_duration);
+			await sleep(sleep_duration.notion);
 			return await this.notion.pages.create(page_data);
 		}
 
@@ -514,7 +520,7 @@ async function main() {
 			let next_cursor = undefined;
 			while (has_more) {
 				// Fetch the first batch of entries
-				await sleep(sleep_duration);
+				await sleep(sleep_duration.notion);
 				const query = (await this.notion.databases.query({ database_id: this.NOTION_DATABASE_ID, filter: { "property": "Platform", "select": { "equals": platform.name } }, start_cursor: next_cursor }));
 				// Clean the object and add it to the entries array
 				for (let result of query.results) {
@@ -547,7 +553,7 @@ async function main() {
 					}
 				}
 			}
-			await sleep(sleep_duration);
+			await sleep(sleep_duration.notion);
 			return await this.notion.pages.update(data);
 		}
 
@@ -561,7 +567,7 @@ async function main() {
 					}
 				}
 			}
-			await sleep(sleep_duration);
+			await sleep(sleep_duration.notion);
 			return await this.notion.pages.update(data);
 		}
 
@@ -596,7 +602,7 @@ async function main() {
 					}
 				]
 			}
-			await sleep(sleep_duration);
+			await sleep(sleep_duration.notion);
 			return await this.notion.blocks.children.append(data);
 		}
 
