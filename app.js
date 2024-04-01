@@ -157,7 +157,7 @@ async function main() {
 		async getCode(platform) {
 			switch (platform.name) {
 				case codeforces_name:
-					await sleep(sleep_duration);
+					await sleep(sleep_duration+500);
 					return cheerio.load((await axios.get(this.url)).data)("#program-source-text").text();
 				case vjudge_name:
 					await sleep(sleep_duration);
