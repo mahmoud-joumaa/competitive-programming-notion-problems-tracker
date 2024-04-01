@@ -1,4 +1,4 @@
-# Competitive Programming Automated Problems Tracker in Notion
+# Competitive Programming Problems Tracker in Notion
 
 A simple application to track problems and submissions across different competitive programming platforms by syncing the data into a single Notion database.
 
@@ -162,3 +162,7 @@ Vjudge does not provide any official documentation, so following is a list of re
 - Submissions Endpoint `https://vjudge.net/status/data?`params
 - Problem Endpoint `https://vjudge.net/problem/data?`params
 - Solution Endpoint `https://vjudge.net/solution/`run-id
+
+# Contact & FAQs
+
+I'm not affiliated with any of the involved platforms. At the time of working on this project, I'm still just an undergraduate Computer Science major. If you would like to reach out, feel free to send an email titled "CP Notion Problems Tracker" to [mahmoud.j.eschool@gmail.com](mailto:mahmoud.j.eschool@gmail.com).
