@@ -86,8 +86,8 @@ async function main() {
 
 	// NOTE: Avoid error with status code 429 by calling `await sleep(sleep_duration.platform_name)`
 	const sleep_duration = {
-		notion: 400,
-		codeforces_name: 2000,
+		notion: 500,
+		codeforces_name: 2500,
 		leetcode_name: 1500,
 		vjudge_name: 1500,
 	};
@@ -633,7 +633,7 @@ async function main() {
 					if (!entries[problem.id].languages_accepted.includes(submission.language)) {
 						await this.updateAcceptedLanguages(entry.page_id, [...entry.languages_accepted, submission.language]);
 					}
-					console.log(`\t\t\t[ACCPETED] ${submission.language} solution for ${problem} `);
+					console.log(`\t\t\t[ACCEPTED] ${submission.language} solution for ${problem} `);
 					// Get the code submission of the accepted solution
 					const code = await submission.getCode(platform);
 					await this.appendCodeBlock(entry.page_id, submission, code);
