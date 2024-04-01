@@ -157,8 +157,10 @@ async function main() {
 		async getCode(platform) {
 			switch (platform.name) {
 				case codeforces_name:
+					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					return cheerio.load((await axios.get(this.url)).data)("#program-source-text").text();
 				case vjudge_name:
+					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					return (await axios.get(`https://vjudge.net/solution/data/${this.id}`)).data.codeAccessInfo; // FIXME: Take into account the actual text while logged in
 					case leetcode_name:
 						return this.code;
@@ -297,6 +299,7 @@ async function main() {
 					submissions = [];
 					let i = 0;
 					while (true) {
+						await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*vjudge_max_results_length}&length=${vjudge_max_results_length}&un=${process.env.VJUDGE_ID}`);
 						if (currentSubmissions.data.data.length == 0) break;
 						submissions.push(...currentSubmissions.data.data);
@@ -308,6 +311,7 @@ async function main() {
 					let has_next = true;
 					let offset = 0;
 					while (has_next) {
+						await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 						const response = await axios(`${this.base_url}/api/submissions?offset=${offset}&limit=${leetcode_limit}`, {
 							headers: leetcode_headers
 						});
@@ -331,12 +335,14 @@ async function main() {
 					break;
 				case vjudge_name:
 					id = `${data.oj}/${data.probNum}`;
+					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					name = await axios.get(`${this.base_url}/problem/data?start=0&length=1&OJId=${data.oj}&probNum=${data.probNum}&title=&source=&category=`);
 					name = name.data.data[0].title;
 					break;
 				case leetcode_name:
 					id = `${data.question_id}/${data.title_slug}`;
 					name = data.title;
+					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					const problem_info = await axios.post(`${this.base_url}/graphql`, {
 						headers: Platform.generateLeetcodeHeaders(Platform.getCSRF(leetcode_name)),
 						query: leetcode_query_get_problem,
@@ -495,6 +501,7 @@ async function main() {
 					}
 				}
 			};
+			await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 			return await this.notion.pages.create(page_data);
 		}
 
@@ -505,6 +512,7 @@ async function main() {
 			let next_cursor = undefined;
 			while (has_more) {
 				// Fetch the first batch of entries
+				await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 				const query = (await this.notion.databases.query({ database_id: this.NOTION_DATABASE_ID, filter: { "property": "Platform", "select": { "equals": platform.name } }, start_cursor: next_cursor }));
 				// Clean the object and add it to the entries array
 				for (let result of query.results) {
@@ -537,6 +545,7 @@ async function main() {
 					}
 				}
 			}
+			await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 			return await this.notion.pages.update(data);
 		}
 
@@ -550,6 +559,7 @@ async function main() {
 					}
 				}
 			}
+			await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 			return await this.notion.pages.update(data);
 		}
 
@@ -584,19 +594,19 @@ async function main() {
 					}
 				]
 			}
+			await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 			return await this.notion.blocks.children.append(data);
 		}
 
 		async updateDB(NOTION_DB, platform, submissions) {
-			console.log(`\n\tFetching entries from ${NOTION_DB}...`)
+			console.log(`\n\tFetching entries from ${NOTION_DB}...`);
 			const entries = await this.fetchEntries(platform);
-			console.log(`\tFetched entries from ${NOTION_DB}\n`)
-			console.log(`\n\tProcessing Submissions...`)
+			console.log(`\tFetched entries from ${NOTION_DB}\n`);
+			console.log(`\n\tProcessing Submissions...`);
 			for (let submission of submissions) {
 				const problem = submission.problem;
 				// Check if this problem has not already been attempted before, add an entry for it
 				if (!entries[problem.id]) {
-					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					entries[problem.id] = Entry.cleanEntry(await this.createPage(platform, problem));
 					console.log(`\t\tCreated ${problem}`);
 				}
@@ -606,7 +616,6 @@ async function main() {
 				const entry = entries[problem.id];
 				// Check if this problem was attempted before in this language
 				if (!entry.languages_attempted.includes(submission.language)) {
-					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					await this.updateAttemptedLanguages(entry.page_id, [...entry.languages_attempted, submission.language]);
 				}
 				console.log(`\t\t\t[PENDING] ${submission.language} solution for ${problem}`);
@@ -618,9 +627,7 @@ async function main() {
 					}
 					console.log(`\t\t\t[ACCPETED] ${submission.language} solution for ${problem} `);
 					// Get the code submission of the accepted solution
-					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					const code = await submission.getCode(platform);
-					await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 					await this.appendCodeBlock(entry.page_id, submission, code);
 				}
 				else {
@@ -672,9 +679,9 @@ async function main() {
 
 		// Only add the platforms where the user has an id to the set
 		const platforms = new Set();
-		// if (codeforces.user_id) platforms.add(codeforces);
+		if (codeforces.user_id) platforms.add(codeforces);
 		if (leetcode.user_id) platforms.add(leetcode);
-		// if (vjudge.user_id) platforms.add(vjudge);
+		if (vjudge.user_id) platforms.add(vjudge);
 
 		// Fetch submission from all supported platforms where the user has an id
 		for (let platform of platforms) {
@@ -683,7 +690,6 @@ async function main() {
 			const submissions_data = await platform.fetchData();
 			let problems = [];
 			for (let data of submissions_data) {
-				await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 				const problem = await platform.getProblem(data);
 				console.log(`\tFetched from ${(problem.url).padEnd(platform.max_url_length.problem, " ")} ${problem}`);
 				problems.push(problem);
@@ -698,7 +704,6 @@ async function main() {
 			console.log(`Formatted ${platform} submissions\n`)
 			// Update the Notion database accordingly
 			console.log(`\nUpdating ${platform} submissions in ${NOTION_DB}...`);
-			await sleep(sleep_duration); // NOTE: Avoid error with status code 429
 			await notion.updateDB(NOTION_DB, platform, submissions);
 			console.log(`Updated ${platform} submissions in ${NOTION_DB}\n`);
 			// Save the new .env information for each platform
