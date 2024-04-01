@@ -157,7 +157,7 @@ async function main() {
 		async getCode(platform) {
 			switch (platform.name) {
 				case codeforces_name:
-					await sleep(sleep_duration+500);
+					await sleep(sleep_duration+1000);
 					return cheerio.load((await axios.get(this.url)).data)("#program-source-text").text();
 				case vjudge_name:
 					await sleep(sleep_duration);
@@ -283,6 +283,8 @@ async function main() {
 			if (language.includes("c++") || language.includes("cpp")) return "C++";
 			if (language.includes("c#")) return "C#";
 			if (language.includes("c")) return "C";
+
+			return language;
 		}
 
 		async fetchData() {
@@ -446,7 +448,7 @@ async function main() {
 		}
 
 		confirmCredentials(NOTION_DB) {
-			const duration = 0;
+			const duration = 30;
 			console.log(`Connected to database: \t${NOTION_DB}`);
 			console.log(`\nTerminate the application within ${duration} seconds if the above credentials are incorrect...\n`);
 			return new Promise((resolve) => {setTimeout(() => {resolve("====================\nSyncing Has Started\n====================")}, duration*1000)});
