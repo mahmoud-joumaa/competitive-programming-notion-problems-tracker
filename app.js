@@ -14,6 +14,72 @@ async function main() {
 
 	const leetcode_name = "leetcode";
 	const leetcode_limit = 20; // limit the number of retrieved objects per request
+	const leetcode_query_get_problem = `
+	query ($titleSlug: String!) {
+		question(titleSlug: $titleSlug) {
+			questionId
+			questionFrontendId
+			boundTopicId
+			title
+			titleSlug
+			content
+			translatedTitle
+			translatedContent
+			isPaidOnly
+			difficulty
+			likes
+			dislikes
+			isLiked
+			similarQuestions
+			exampleTestcases
+			contributors {
+				username
+				profileUrl
+				avatarUrl
+			}
+			topicTags {
+				name
+				slug
+				translatedName
+			}
+			companyTagStats
+			codeSnippets {
+				lang
+				langSlug
+				code
+			}
+			stats
+			hints
+			solution {
+				id
+				canSeeDetail
+				paidOnly
+				hasVideoSolution
+				paidOnlyVideo
+			}
+			status
+			sampleTestCase
+			metaData
+			judgerAvailable
+			judgeType
+			mysqlSchemas
+			enableRunCode
+			enableTestMode
+			enableDebugger
+			envInfo
+			libraryUrl
+			adminUrl
+			challengeQuestion {
+				id
+				date
+				incompleteChallengeCount
+				streakCount
+				type
+			}
+			note
+		}
+	}
+`;
 
 	const vjudge_name = "vjudge";
 	const vjudge_max_results_length = 20; // the max that can be retrieved per request
@@ -269,11 +335,14 @@ async function main() {
 				case leetcode_name:
 					id = `${data.question_id}/${data.title_slug}`;
 					name = data.title;
-					difficulty = (await axios.get(`${this.base_url}/api/problems/all`, {
-						headers: Platform.generateLeetcodeHeaders(Platform.getCSRF(leetcode_name))
-					})).data.stat_status_pairs.find(question => question.stat.question_id===data.question_id).difficulty.level;
-					difficulty = difficulty==1?"Easy":difficulty==2?"Medium":difficulty==3?"Hard":"";
-					break;
+					const problem_info = await axios.post(`${this.base_url}/graphql`, {
+						headers: Platform.generateLeetcodeHeaders(Platform.getCSRF(leetcode_name)),
+						query: leetcode_query_get_problem,
+						variables: { "titleSlug": data.title_slug }
+					});
+				difficulty = problem_info.data.data.question.difficulty;
+				for (const tag of problem_info.data.data.question.topicTags) tags.push(tag.name.toLowerCase());
+				break;
 			}
 			return new Problem(this, id, name, difficulty, tags);
 		}
