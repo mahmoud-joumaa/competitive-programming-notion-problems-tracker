@@ -109,10 +109,10 @@ async function main() {
 			switch (platform.name) {
 				case codeforces_name:
 					await sleep(sleep_duration.codeforces_name);
-					return cheerio.load((await axios.get(this.url)).data)("#program-source-text").text();
+					return cheerio.load((await axios.get(this.url, {proxy: getRandomProxy()})).data)("#program-source-text").text();
 				case vjudge_name:
 					await sleep(sleep_duration.vjudge_name);
-					return (await axios.get(`https://vjudge.net/solution/data/${this.id}`)).data.codeAccessInfo; // FIXME: Take into account the actual text while logged in
+					return (await axios.get(`https://vjudge.net/solution/data/${this.id}`, {proxy: getRandomProxy()})).data.codeAccessInfo; // FIXME: Take into account the actual text while logged in
 					case leetcode_name:
 						return this.code;
 			}
@@ -173,6 +173,17 @@ async function main() {
 			return maxUrlLength;
 		}
 
+		static async getRandomProxy(protocol="https") {
+			const proxies = (await axios.get(`https://raw.githubusercontent.com/zloi-user/hideip.me/main/${protocol}.txt`, {proxy: getRandomProxy()})).data.split('\n');
+			for (let i = 0; i < proxies.length; i++) proxies[i] = proxies[i].substring(0, proxies[i].lastIndexOf(':'));
+			const proxy =  proxies[generateRandomNumber(proxies.length)];
+			return {
+				protocol: protocol,
+				host: proxy.split(':')[0],
+				port: Number(proxy.split(':')[1])
+			};
+		}
+
 		static generateLeetcodeHeaders(csrf_token) {
 			const base_url = Platform.generateBaseUrl(leetcode_name);
 			return {
@@ -187,11 +198,14 @@ async function main() {
 
 		static async getCSRF(platform_name) {
 			const baseUrl = Platform.generateBaseUrl(platform_name)
-			const cookies_raw = await axios.get(baseUrl, {headers: {
-				"content-type": "application/json",
-				origin: baseUrl,
-				refer: baseUrl,
-				"user-agent": "localhost"}
+			const cookies_raw = await axios.get(baseUrl, {
+				proxy: getRandomProxy(),
+				headers: {
+					"content-type": "application/json",
+					origin: baseUrl,
+					refer: baseUrl,
+					"user-agent": "localhost"
+				}
 			});
 			return Platform.parseCookie(cookies_raw);
 		}
@@ -246,14 +260,14 @@ async function main() {
 				case codeforces_name:
 					const randomSig = Platform.generateRandomString(6);
 					const fetchRequestParams = `user.status?apiKey=${process.env.CODEFORCES_KEY}&handle=${process.env.CODEFORCES_ID}&time=${now}`;
-					submissions = await axios.get(`${this.base_url}/${fetchRequestParams}&apiSig=${randomSig}${crypto.createHash('sha512').update(`${randomSig}/${fetchRequestParams}#${process.env.CODEFORCES_SECRET}`).digest('hex')}`);
+					submissions = await axios.get(`${this.base_url}/${fetchRequestParams}&apiSig=${randomSig}${crypto.createHash('sha512').update(`${randomSig}/${fetchRequestParams}#${process.env.CODEFORCES_SECRET}`).digest('hex')}`, {proxy: getRandomProxy()});
 					return (submissions.data.result).filter(submission => submission.creationTimeSeconds > this.last_submission_timestamp);
 				case vjudge_name:
 					submissions = [];
 					let i = 0;
 					while (true) {
 						await sleep(sleep_duration.vjudge_name);
-						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*vjudge_max_results_length}&length=${vjudge_max_results_length}&un=${process.env.VJUDGE_ID}`);
+						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*vjudge_max_results_length}&length=${vjudge_max_results_length}&un=${process.env.VJUDGE_ID}`, {proxy: getRandomProxy()});
 						if (currentSubmissions.data.data.length == 0) break;
 						submissions.push(...currentSubmissions.data.data);
 						i++;
@@ -289,7 +303,7 @@ async function main() {
 				case vjudge_name:
 					id = `${data.oj}/${data.probNum}`;
 					await sleep(sleep_duration.vjudge_name);
-					name = await axios.get(`${this.base_url}/problem/data?start=0&length=1&OJId=${data.oj}&probNum=${data.probNum}&title=&source=&category=`);
+					name = await axios.get(`${this.base_url}/problem/data?start=0&length=1&OJId=${data.oj}&probNum=${data.probNum}&title=&source=&category=`, {proxy: getRandomProxy()});
 					name = name.data.data[0].title;
 					break;
 				case leetcode_name:
@@ -297,6 +311,7 @@ async function main() {
 					name = data.title;
 					await sleep(sleep_duration.leetcode_name);
 					const problem_info = await axios.post(`${this.base_url}/graphql`, {
+						proxy: getRandomProxy(),
 						headers: Platform.generateLeetcodeHeaders(Platform.getCSRF(leetcode_name)),
 						query: leetcode_query_get_problem,
 						variables: { "titleSlug": data.title_slug }
@@ -594,8 +609,12 @@ async function main() {
 
 	// Functions ====================================================================================
 
+	function generateRandomNumber(max=1) {
+		return Math.floor(Math.random()*max);
+	}
+
 	async function randomWait() {
-		return new Promise(resolve => setTimeout(resolve, Math.floor(Math.random)*1001))
+		return new Promise(resolve => setTimeout(resolve, generateRandomNumber(1001)));
 	}
 
 	async function sleep(duration) {
