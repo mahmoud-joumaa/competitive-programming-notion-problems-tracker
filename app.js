@@ -173,17 +173,6 @@ async function main() {
 			return maxUrlLength;
 		}
 
-		static async getRandomProxy(protocol="https") {
-			const proxies = (await axios.get(`https://raw.githubusercontent.com/zloi-user/hideip.me/main/${protocol}.txt`, {proxy: getRandomProxy()})).data.split('\n');
-			for (let i = 0; i < proxies.length; i++) proxies[i] = proxies[i].substring(0, proxies[i].lastIndexOf(':'));
-			const proxy =  proxies[generateRandomNumber(proxies.length)];
-			return {
-				protocol: protocol,
-				host: proxy.split(':')[0],
-				port: Number(proxy.split(':')[1])
-			};
-		}
-
 		static generateLeetcodeHeaders(csrf_token) {
 			const base_url = Platform.generateBaseUrl(leetcode_name);
 			return {
@@ -611,6 +600,17 @@ async function main() {
 
 	function generateRandomNumber(max=1) {
 		return Math.floor(Math.random()*max);
+	}
+
+	async function getRandomProxy(protocol="https") {
+		const proxies = (await axios.get(`https://raw.githubusercontent.com/zloi-user/hideip.me/main/${protocol}.txt`)).data.split('\n');
+		for (let i = 0; i < proxies.length; i++) proxies[i] = proxies[i].substring(0, proxies[i].lastIndexOf(':'));
+		const proxy =  proxies[generateRandomNumber(proxies.length)];
+		return {
+			protocol: protocol,
+			host: proxy.split(':')[0],
+			port: Number(proxy.split(':')[1])
+		};
 	}
 
 	async function randomWait() {
