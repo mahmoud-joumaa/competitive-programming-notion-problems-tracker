@@ -594,7 +594,12 @@ async function main() {
 
 	// Functions ====================================================================================
 
+	async function randomWait() {
+		return new Promise(resolve => setTimeout(resolve, Math.floor(Math.random)*1001))
+	}
+
 	async function sleep(duration) {
+		randomWait();
 		return new Promise(resolve => setTimeout(resolve, duration));
 	}
 
