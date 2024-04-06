@@ -9,6 +9,9 @@ async function main() {
 
 	const { Client } = require('@notionhq/client');
 
+	// global variables
+	let requests = 0; // track number of requests
+
 	// platform-specific properties
 	const codeforces_name = "codeforces";
 	const codeforces_id_threshold = 100000; // any id greater than this is placed in the gym
@@ -601,10 +604,12 @@ async function main() {
 	}
 
 	async function randomWait() {
+		if (requests%10 == 0) return new Promise(resolve => setTimeout(resolve, 6000));
 		return new Promise(resolve => setTimeout(resolve, generateRandomNumber(1001)));
 	}
 
 	async function sleep(duration) {
+		requests++;
 		randomWait();
 		return new Promise(resolve => setTimeout(resolve, duration));
 	}
