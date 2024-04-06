@@ -649,7 +649,7 @@ async function main() {
 		// Only add the platforms where the user has an id to the set
 		const platforms = new Set();
 		if (codeforces.user_id) platforms.add(codeforces);
-		// if (leetcode.user_id) platforms.add(leetcode);
+		if (leetcode.user_id) platforms.add(leetcode);
 		if (vjudge.user_id) platforms.add(vjudge);
 
 		// Fetch submission from all supported platforms where the user has an id
