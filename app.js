@@ -639,7 +639,8 @@ async function main() {
 	try {
 
 		// for (let i = 0; i < 1000; i++) console.log(await getRandomProxy()); exitApplication(2); // TEMP:
-		for (let i = 0; i < 1000; i++) {const proxy = await getRandomProxy("https"); console.log(proxy); console.log((await axios.get("https://codeforces.com", {proxy: proxy})).status);} exitApplication(3); // TEMP:
+		// for (let i = 0; i < 1000; i++) {const proxy = await getRandomProxy("https"); console.log(proxy); console.log((await axios.get("https://codeforces.com", {proxy: proxy})).status);} exitApplication(3); // TEMP:
+		console.log((await axios.get("https://codeforces.com", {proxy: {protocol: "https", host: "8.213.128.90", port: 8080}}))); exitApplication(5); // TEMP:
 
 		// Welcoming the user
 		console.log("\n\n====================================================================================================\nWelcome to the Competitve Programming Problems Tracker in Notion\n====================================================================================================\n");
