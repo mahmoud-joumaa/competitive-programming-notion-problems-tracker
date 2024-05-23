@@ -583,7 +583,6 @@ async function main() {
 					console.log(`\t\t\t[ACCEPTED] ${submission.language} solution for ${problem} `);
 					// Get the code submission of the accepted solution
 					// const code = await submission.getCode(platform); FIXME: Fix once error 403 is resolved
-					console.log("Code retrieval is pending the resolve of error 403: https://github.com/MahmoudJLB/competitive-programming-notion-problems-tracker?tab=readme-ov-file#known-issues"); // TEMP:
 					const code = "";
 					await this.appendCodeBlock(entry.page_id, submission, code);
 				}
