@@ -401,7 +401,7 @@ async function main() {
 		}
 
 		confirmCredentials(NOTION_DB) {
-			const duration = 0; // COMBAK: Change back to 30
+			const duration = 15;
 			console.log(`Connected to database: \t${NOTION_DB}`);
 			console.log(`\nTerminate the application within ${duration} seconds if the above credentials are incorrect...\n`);
 			return new Promise((resolve) => {setTimeout(() => {resolve("====================\nSyncing Has Started\n====================")}, duration*1000)});
