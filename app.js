@@ -582,7 +582,7 @@ async function main() {
 					}
 					console.log(`\t\t\t[ACCEPTED] ${submission.language} solution for ${problem} `);
 					// Get the code submission of the accepted solution
-					// const code = await submission.getCode(platform); FIXME: Fix once error 403 is resolved
+					// const code = await submission.getCode(platform); FIXME: Need to resolve error 403
 					const code = "";
 					await this.appendCodeBlock(entry.page_id, submission, code);
 				}
