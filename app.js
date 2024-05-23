@@ -109,10 +109,10 @@ async function main() {
 			switch (platform.name) {
 				case codeforces_name:
 					await sleep(sleep_duration.codeforces_name);
-					return cheerio.load((await axios.get(this.url, {proxy: await getRandomProxy()})).data)("#program-source-text").text();
+					return cheerio.load((await axios.get(this.url)).data)("#program-source-text").text();
 				case vjudge_name:
 					await sleep(sleep_duration.vjudge_name);
-					return (await axios.get(`https://vjudge.net/solution/data/${this.id}`, {proxy: await getRandomProxy()})).data.codeAccessInfo; // FIXME: Take into account the actual text while logged in
+					return (await axios.get(`https://vjudge.net/solution/data/${this.id}`)).data.codeAccessInfo; // FIXME: Take into account the actual text while logged in
 					case leetcode_name:
 						return this.code;
 			}
@@ -188,7 +188,6 @@ async function main() {
 		static async getCSRF(platform_name) {
 			const baseUrl = Platform.generateBaseUrl(platform_name)
 			const cookies_raw = await axios.get(baseUrl, {
-				proxy: await getRandomProxy(),
 				headers: {
 					"content-type": "application/json",
 					origin: baseUrl,
@@ -249,14 +248,14 @@ async function main() {
 				case codeforces_name:
 					const randomSig = Platform.generateRandomString(6);
 					const fetchRequestParams = `user.status?apiKey=${process.env.CODEFORCES_KEY}&handle=${process.env.CODEFORCES_ID}&time=${now}`;
-					submissions = await axios.get(`${this.base_url}/${fetchRequestParams}&apiSig=${randomSig}${crypto.createHash('sha512').update(`${randomSig}/${fetchRequestParams}#${process.env.CODEFORCES_SECRET}`).digest('hex')}`, {proxy: await getRandomProxy()});
+					submissions = await axios.get(`${this.base_url}/${fetchRequestParams}&apiSig=${randomSig}${crypto.createHash('sha512').update(`${randomSig}/${fetchRequestParams}#${process.env.CODEFORCES_SECRET}`).digest('hex')}`);
 					return (submissions.data.result).filter(submission => submission.creationTimeSeconds > this.last_submission_timestamp);
 				case vjudge_name:
 					submissions = [];
 					let i = 0;
 					while (true) {
 						await sleep(sleep_duration.vjudge_name);
-						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*vjudge_max_results_length}&length=${vjudge_max_results_length}&un=${process.env.VJUDGE_ID}`, {proxy: await getRandomProxy()});
+						let currentSubmissions = await axios.get(`${this.base_url}/status/data?start=${i*vjudge_max_results_length}&length=${vjudge_max_results_length}&un=${process.env.VJUDGE_ID}`);
 						if (currentSubmissions.data.data.length == 0) break;
 						submissions.push(...currentSubmissions.data.data);
 						i++;
@@ -292,7 +291,7 @@ async function main() {
 				case vjudge_name:
 					id = `${data.oj}/${data.probNum}`;
 					await sleep(sleep_duration.vjudge_name);
-					name = await axios.get(`${this.base_url}/problem/data?start=0&length=1&OJId=${data.oj}&probNum=${data.probNum}&title=&source=&category=`, {proxy: await getRandomProxy()});
+					name = await axios.get(`${this.base_url}/problem/data?start=0&length=1&OJId=${data.oj}&probNum=${data.probNum}&title=&source=&category=`);
 					name = name.data.data[0].title;
 					break;
 				case leetcode_name:
@@ -300,7 +299,6 @@ async function main() {
 					name = data.title;
 					await sleep(sleep_duration.leetcode_name);
 					const problem_info = await axios.post(`${this.base_url}/graphql`, {
-						proxy: await getRandomProxy(),
 						headers: Platform.generateLeetcodeHeaders(Platform.getCSRF(leetcode_name)),
 						query: leetcode_query_get_problem,
 						variables: { "titleSlug": data.title_slug }
@@ -637,10 +635,6 @@ async function main() {
 	// ==============================================================================================
 
 	try {
-
-		// for (let i = 0; i < 1000; i++) console.log(await getRandomProxy()); exitApplication(2); // TEMP:
-		// for (let i = 0; i < 1000; i++) {const proxy = await getRandomProxy("https"); console.log(proxy); console.log((await axios.get("https://codeforces.com", {proxy: proxy})).status);} exitApplication(3); // TEMP:
-		console.log((await axios.get("https://codeforces.com", {proxy: {protocol: "https", host: "8.213.128.90", port: 8080}}))); exitApplication(5); // TEMP:
 
 		// Welcoming the user
 		console.log("\n\n====================================================================================================\nWelcome to the Competitve Programming Problems Tracker in Notion\n====================================================================================================\n");
