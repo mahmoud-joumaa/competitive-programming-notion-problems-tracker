@@ -120,9 +120,11 @@ After you've updated the `.env` file with your identifiers as described in the p
 - Error handling is rather basic. This _is_ a simple application, after all.
 	- If one of the websites is down, the application _will_ crash. A workaround for this would be to avoid syncing to that platform while its servers are down.
 
-For the time being, a simple fix would be to clear the database and reset the `.env` timestamps back to `0`. This ensures a clean sync into an empty database.
+For the time being, a simple fix would be to clear the Notion database and reset the `.env` timestamps back to `0`. This ensures a clean sync into an empty database.
 
 - All languages supported by a platform are supported when syncing, but the formatting is still undergoing some testing.
+
+- **Error 403:** Multiple http requests to the same website (or API endpoint) is causing the application to be detected as a webscraper and a _403 "Forbidden Access"_ error is returned in the terminal, causing the application to crash. Fixes are currently being developed to resolve this issue. As such, any code retrievals will be blank, as they are not fetched from the endpoint to limit the number of http requests needed by the application to function (as a temporary fix), but the URL to the submission remains intact and valid inside the Notion page.
 
 ### Codeforces
 
