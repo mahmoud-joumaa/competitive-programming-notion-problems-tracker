@@ -113,6 +113,7 @@ After you've updated the `.env` file with your identifiers as described in the p
 - [x] [Leetcode](https://leetcode.com/)
 - [x] [VJudge](https://vjudge.net/)
 - [ ] [AtCoder](https://atcoder.jp/)
+- [ ] [HackerRank](https://www.hackerrank.com/)
 - [ ] [CSES](https://cses.fi/)
 
 ## Known Issues
